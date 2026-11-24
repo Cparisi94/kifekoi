@@ -1843,6 +1843,7 @@ async function handleAuth(mode, email, password) {
       await Sync.signIn(email, password);
       toast('Connecté ✓ Les données sont partagées.');
     }
+    if (isNative) Push.syncNativeToken().catch(() => {});
     render(true);
   } catch (err) {
     toast(String(err.message || err), 6000);
@@ -2358,6 +2359,7 @@ function boot() {
   if (isNative) scheduleNativeReminders();
 
   Push.refresh().catch(() => {});
+  if (isNative) Push.initNativePush().catch(() => {});
 
   if ('serviceWorker' in navigator && !isNative) {
     const hadController = Boolean(navigator.serviceWorker.controller);

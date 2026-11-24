@@ -18,6 +18,7 @@ export const state = {
   permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
   subscribed: false,
   endpoint: '',
+  nativeToken: '',
   busy: false,
   message: '',
 };
@@ -158,7 +159,11 @@ export async function notify(payload) {
     const res = await fetch(`${BASE}/functions/v1/notify`, {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({ ...payload, exclude: state.endpoint || undefined }),
+      body: JSON.stringify({
+        ...payload,
+        exclude: state.endpoint || undefined,
+        excludeToken: state.nativeToken || undefined,
+      }),
     });
     if (!res.ok) console.warn('notify', res.status, await res.text().catch(() => ''));
     return res.ok;
@@ -166,6 +171,82 @@ export async function notify(payload) {
     console.warn('notify', err);
     return false;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Notifications natives (application Android + Firebase)              */
+/* ------------------------------------------------------------------ */
+
+let nativeReady = false;
+
+function nativePush() {
+  const Cap = typeof window !== 'undefined' ? window.Capacitor : null;
+  return Cap && Cap.Plugins ? Cap.Plugins.PushNotifications : null;
+}
+
+async function saveNativeToken(token) {
+  if (!token || !Sync.isSignedIn()) return false;
+  try {
+    const res = await fetch(`${BASE}/rest/v1/device_tokens`, {
+      method: 'POST',
+      headers: { ...(await authHeaders()), Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify([
+        {
+          token,
+          device: deviceLabel(),
+          platform: 'android',
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('token FCM', err);
+    return false;
+  }
+}
+
+export function nativeAvailable() {
+  return Boolean(nativePush());
+}
+
+export async function initNativePush() {
+  const PN = nativePush();
+  if (!PN) return false;
+  try {
+    if (!nativeReady) {
+      const perm = await PN.requestPermissions();
+      if (!perm || perm.receive !== 'granted') return false;
+
+      await PN.addListener('registration', (t) => {
+        if (t && t.value) {
+          state.nativeToken = t.value;
+          saveNativeToken(t.value);
+        }
+      });
+      await PN.addListener('registrationError', (err) => console.warn('FCM erreur', err));
+      await PN.addListener('pushNotificationReceived', () => {
+        try { Sync.syncNow('push'); } catch { /* ignore */ }
+      });
+      await PN.addListener('pushNotificationActionPerformed', () => {
+        try { Sync.syncNow('push-open'); } catch { /* ignore */ }
+      });
+
+      await PN.register();
+      nativeReady = true;
+    }
+    if (state.nativeToken) await saveNativeToken(state.nativeToken);
+    return true;
+  } catch (err) {
+    console.warn('FCM init', err);
+    return false;
+  }
+}
+
+/* Réenregistre le jeton après une connexion. */
+export async function syncNativeToken() {
+  if (!state.nativeToken || !Sync.isSignedIn()) return false;
+  return saveNativeToken(state.nativeToken);
 }
 
 export function statusLabel() {
