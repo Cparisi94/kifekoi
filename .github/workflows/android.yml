@@ -36,12 +36,13 @@ jobs:
           cat > app/package.json <<'EOF'
           {
             "name": "kifekoi-app",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "private": true,
             "dependencies": {
               "@capacitor/android": "^6.2.0",
               "@capacitor/core": "^6.2.0",
-              "@capacitor/local-notifications": "^6.1.0"
+              "@capacitor/local-notifications": "^6.1.0",
+              "@capacitor/push-notifications": "^6.0.0"
             },
             "devDependencies": {
               "@capacitor/assets": "^3.0.5",
@@ -75,8 +76,8 @@ jobs:
           function patchStrings() {
             const file = path.join(androidMain, 'res', 'values', 'strings.xml');
             let xml = fs.readFileSync(file, 'utf8');
-          xml = xml.replace(/<string name="app_name">.*?<\/string>/, '<string name="app_name">Kifékoï</string>');
-          xml = xml.replace(/<string name="title_activity_main">.*?<\/string>/, '<string name="title_activity_main">Kifékoï</string>');
+            xml = xml.replace(/<string name="app_name">.*?<\/string>/, '<string name="app_name">Kifékoï</string>');
+            xml = xml.replace(/<string name="title_activity_main">.*?<\/string>/, '<string name="title_activity_main">Kifékoï</string>');
             fs.writeFileSync(file, xml);
           }
 
@@ -119,9 +120,28 @@ jobs:
             fs.writeFileSync(file, gradle);
           }
 
+          function patchFirebase() {
+            const rootFile = path.join(appDir, 'android', 'build.gradle');
+            let root = fs.readFileSync(rootFile, 'utf8');
+            if (!root.includes('com.google.gms:google-services')) {
+              const idx = root.indexOf('classpath');
+              if (idx >= 0) {
+                root = root.slice(0, idx) + "classpath 'com.google.gms:google-services:4.4.2'\n        " + root.slice(idx);
+                fs.writeFileSync(rootFile, root);
+              }
+            }
+            const appFile = path.join(appDir, 'android', 'app', 'build.gradle');
+            let app = fs.readFileSync(appFile, 'utf8');
+            if (!app.includes('com.google.gms.google-services')) {
+              app += "\napply plugin: 'com.google.gms.google-services'\n";
+              fs.writeFileSync(appFile, app);
+            }
+          }
+
           patchStrings();
           patchManifest();
           patchGradle();
+          patchFirebase();
           EOF
           base64 -d > app/keystore.jks <<'EOF'
           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
@@ -135,7 +155,13 @@ jobs:
         working-directory: app
         run: npx cap add android
 
-      - name: Personnaliser (nom, permissions, signature)
+      - name: Configurer Firebase
+        run: |
+          base64 -d > app/android/app/google-services.json <<'EOF'
+          ewogICJwcm9qZWN0X2luZm8iOiB7CiAgICAicHJvamVjdF9udW1iZXIiOiAiOTk4NzMyODA5NTU2IiwKICAgICJwcm9qZWN0X2lkIjogImtpZmVrb2lmYW1pbHkiLAogICAgInN0b3JhZ2VfYnVja2V0IjogImtpZmVrb2lmYW1pbHkuZmlyZWJhc2VzdG9yYWdlLmFwcCIKICB9LAogICJjbGllbnQiOiBbCiAgICB7CiAgICAgICJjbGllbnRfaW5mbyI6IHsKICAgICAgICAibW9iaWxlc2RrX2FwcF9pZCI6ICIxOjk5ODczMjgwOTU1NjphbmRyb2lkOjM0NzU5ZWUyYjU5OTFlYTgyMzc0YzEiLAogICAgICAgICJhbmRyb2lkX2NsaWVudF9pbmZvIjogewogICAgICAgICAgInBhY2thZ2VfbmFtZSI6ICJmci5raWZla29pLmFwcCIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJvYXV0aF9jbGllbnQiOiBbXSwKICAgICAgImFwaV9rZXkiOiBbCiAgICAgICAgewogICAgICAgICAgImN1cnJlbnRfa2V5IjogIkFJemFTeUJWNGxNSDU5dzlJNlVpcnIyTjFZTlJDN04xN3c3RDJfVSIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJzZXJ2aWNlcyI6IHsKICAgICAgICAiYXBwaW52aXRlX3NlcnZpY2UiOiB7CiAgICAgICAgICAib3RoZXJfcGxhdGZvcm1fb2F1dGhfY2xpZW50IjogW10KICAgICAgICB9CiAgICAgIH0KICAgIH0KICBdLAogICJjb25maWd1cmF0aW9uX3ZlcnNpb24iOiAiMSIKfQ==
+          EOF
+
+      - name: Personnaliser (nom, permissions, signature, Firebase)
         working-directory: app
         run: node patch-android.js
 
