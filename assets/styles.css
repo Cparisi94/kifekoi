@@ -1305,3 +1305,299 @@ iframe[id^="nl-badge"] {
 .diag-line span { color: var(--muted); }
 .diag-line b { font-weight: 700; text-align: right; word-break: break-all; }
 .diag-line b.bad { color: #d63b55; }
+
+/* ------------------------- Écran de démarrage ------------------------- */
+
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(140, 215, 240, .45) 0%, transparent 60%),
+    linear-gradient(160deg, #06607f 0%, #0492c2 55%, #1aa2cf 100%);
+  transition: opacity .35s ease;
+  animation: splashHide .45s ease 2.6s forwards;
+}
+#splash img {
+  display: block;
+  width: 108px;
+  height: 108px;
+  border-radius: 23px;
+  background: transparent;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .30);
+}
+#splash span {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: .5px;
+}
+#splash.hide { opacity: 0; pointer-events: none; }
+
+@keyframes splashHide {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* --------------------- Bandeau agenda compact --------------------- */
+
+.hero.compact {
+  padding: 10px 14px 11px;
+  border-radius: 18px;
+}
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.hero-name {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  opacity: .95;
+}
+.hero-add {
+  width: 38px;
+  height: 38px;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .45);
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .35);
+}
+.hero-add:active { transform: scale(.94); }
+.hero-summary {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: .96;
+  margin-top: 2px;
+  padding-right: 4px;
+}
+.hero-summary b { font-weight: 800; }
+
+/* ------------------------ Calendrier plus haut ------------------------ */
+
+.cal-day {
+  min-height: 66px;
+  padding: 5px 0 6px;
+}
+.cal-grid { gap: 3px; }
+
+@media (max-width: 380px) {
+  .cal-day { min-height: 60px; }
+}
+.hero-summary {
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: .96;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-add { width: 36px; height: 36px; }
+/* Bouton + du bandeau : rond blanc, croix bleue épaisse */
+.hero.compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+}
+.hero-text { flex: 1; min-width: 0; }
+.hero-add {
+  flex: 0 0 auto;
+  width: 50px;
+  height: 50px;
+  background: #fff;
+  color: var(--brand);
+  border: 0;
+  box-shadow: 0 10px 22px -8px rgba(0, 0, 0, .45);
+}
+.hero-add svg { width: 28px; height: 28px; }
+.hero-add:active { transform: scale(.94); }
+
+/* ------------------------------- Bilan ------------------------------- */
+
+.page-title { font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin: 2px 0 0; }
+
+.seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.seg-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 8px 6px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg-btn.on { background: var(--brand); color: #fff; }
+
+.bilan-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bilan-nav b { font-size: 13.5px; text-transform: capitalize; text-align: center; }
+.bilan-label { font-size: 12px; color: var(--muted); text-align: center; }
+
+.bilan-child { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.bilan-child:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.bilan-child-head { display: flex; align-items: center; gap: 6px; font-size: 14px; margin: 0 0 8px; }
+.bilan-child-head span { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 500; }
+.bilan-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 6px 0; }
+.bilan-name { display: flex; align-items: center; gap: 6px; flex: 0 0 96px; width: 96px; font-weight: 600; }
+.bilan-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, #94a3b8); flex: 0 0 8px; }
+.bilan-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.bilan-bar i { display: block; height: 100%; border-radius: 999px; background: var(--c, var(--brand)); }
+.bilan-num { flex: 0 0 44px; width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.balance-card { display: flex; flex-direction: column; gap: 10px; }
+.bal-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+.bal-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.bal-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, #94a3b8); }
+.bal-line { font-size: 14px; line-height: 1.45; margin: 0; }
+.bal-line b { color: var(--text); }
+.bal-line.ok { color: #0f8a5f; font-weight: 700; }
+
+.exp-list { display: flex; flex-direction: column; gap: 8px; }
+.exp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.exp-date { display: flex; flex-direction: column; align-items: center; flex: 0 0 34px; width: 34px; }
+.exp-date b { font-size: 15px; line-height: 1.05; }
+.exp-date i { font-style: normal; font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.exp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.exp-main b { font-size: 13.5px; }
+.exp-main .muted { font-size: 11.5px; }
+.exp-amount { font-weight: 800; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+
+/* Bandeau sur 2 lignes */
+.hero-summary {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+}
+
+/* Fond du calendrier : teinte du bandeau, cases plus claires */
+.calendar.card {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--brand) 10%, var(--surface)) 0%,
+      color-mix(in srgb, var(--brand) 6%, var(--surface)) 100%);
+  border-color: color-mix(in srgb, var(--brand) 20%, var(--line));
+}
+.cal-day {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 8%, transparent);
+}
+.cal-day.out { background: transparent; border-color: transparent; }
+.cal-day.is-holiday { background: #ffeee0; }
+.cal-day.out.is-holiday { background: #fff7f0; }
+.cal-day.sel { background: var(--brand); border-color: var(--brand); }
+
+/* Le numéro du jour reste collé en bas de la case */
+.cal-day { justify-content: flex-start; gap: 1px; }
+.cal-spacer { flex: 1 1 auto; min-height: 0; }
+.cal-num { line-height: 1.05; font-variant-numeric: tabular-nums; display: block; }
+.cal-day .dots { margin-top: 0; }
+
+/* Calendrier : même bleu que le bandeau KIFÉKOI */
+.calendar.card {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(160, 220, 245, .55) 0%, transparent 55%),
+    linear-gradient(135deg, #06607f 0%, #0492c2 55%, #22a9d6 100%);
+  border-color: rgba(255, 255, 255, .18);
+  color: #eaf7ff;
+}
+.calendar .cal-head h2,
+.calendar .cal-legend,
+.calendar .link { color: #eaf7ff; }
+.calendar .cal-head h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+.calendar .cal-head .icon-btn {
+  color: #eaf7ff;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .22);
+}
+.calendar .cal-weekdays span { color: rgba(255, 255, 255, .82); }
+
+.calendar .cal-day {
+  background: rgba(255, 255, 255, .95);
+  border: 1px solid transparent;
+  color: var(--text);
+}
+.calendar .cal-day.out {
+  background: rgba(255, 255, 255, .12);
+  border-color: transparent;
+  color: rgba(255, 255, 255, .8);
+}
+.calendar .cal-day.is-holiday { background: #ffeee0; color: #7a4a1d; }
+.calendar .cal-day.out.is-holiday { background: rgba(255, 255, 255, .2); color: rgba(255, 255, 255, .85); }
+.calendar .cal-day.today { color: var(--brand); }
+.calendar .cal-day.sel {
+  background: #fff;
+  color: var(--brand);
+  box-shadow: inset 0 0 0 2px rgba(4, 146, 194, .45);
+}
+.calendar .cal-day.sel .dots i { background: var(--brand); }
+.calendar .cal-legend i { background: #ffc48a; }
+
+/* Pastilles d'événements : toujours visibles, toujours colorées */
+.calendar .cal-day .dots { opacity: 1; position: relative; z-index: 2; }
+.calendar .cal-day .dots i {
+  background: var(--c, #94a3b8);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .55);
+}
+.calendar .cal-day.out { opacity: 1; }
+.calendar .cal-day.out .cal-num { opacity: .6; }
+.calendar .cal-day.out.has-events { opacity: 1; }
+.calendar .cal-day.out .dots i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
+.calendar .cal-day.sel .dots i { background: var(--c, #94a3b8); }
+
+/* Jour sélectionné : case bleu profond, nettement distincte */
+.calendar .cal-day.sel {
+  background: #06364d;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .92), 0 8px 16px -8px rgba(0, 0, 0, .5);
+}
+.calendar .cal-day.sel .cal-num { font-weight: 800; }
+.calendar .cal-day.sel .dots i { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); }
+.calendar .cal-day.sel .custody-seg { opacity: 1; }
+
+/* Jours des autres mois : fond un peu plus clair */
+.calendar .cal-day.out { background: rgba(255, 255, 255, .24); }
+.calendar .cal-day.out .cal-num { opacity: .78; }
+.calendar .cal-day.out.is-holiday { background: rgba(255, 255, 255, .34); }
+
+/* Jours hors mois : encore plus clairs */
+.calendar .cal-day.out { background: rgba(255, 255, 255, .38); }
+.calendar .cal-day.out .cal-num { opacity: .88; }
+.calendar .cal-day.out.is-holiday { background: rgba(255, 255, 255, .46); }
+
+/* Jour sélectionné : bleu moyen (moins foncé) */
+.calendar .cal-day.sel { background: #0B5F84; }
+
+/* Jours hors mois : plus clairs, texte foncé pour rester lisible */
+.calendar .cal-day.out {
+  background: rgba(255, 255, 255, .55);
+  color: rgba(13, 39, 51, .55);
+}
+.calendar .cal-day.out .cal-num { opacity: 1; }
+.calendar .cal-day.out.is-holiday { background: rgba(255, 255, 255, .62); color: rgba(13, 39, 51, .6); }

@@ -69,6 +69,8 @@ const ui = {
   installPrompt: null,
   custodyOpen: false,
   custodyChildId: null,
+  bilanPeriod: 'rentree',
+  bilanOffset: 0,
 };
 
 let sheetDraft = null;
@@ -101,6 +103,22 @@ function approvalOn() {
 
 function setApproval(on) {
   try { localStorage.setItem(APPROVAL_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+}
+
+/* Zone de vacances scolaires (A, B ou C). */
+const ZONE_KEY = 'af.zone.v1';
+
+function schoolZone() {
+  try {
+    const z = localStorage.getItem(ZONE_KEY);
+    return z === 'A' || z === 'B' || z === 'C' ? z : 'C';
+  } catch {
+    return 'C';
+  }
+}
+
+function setSchoolZone(z) {
+  try { localStorage.setItem(ZONE_KEY, z); } catch { /* ignore */ }
 }
 
 const PART_LABEL = { am: 'matin', pm: 'après-midi', sleep: 'nuit' };
@@ -238,6 +256,10 @@ function custodyRowHTML() {
   const multi = list.length > 1;
   const week = U.isoWeekNumber(U.parseLocal(ui.selected));
   const parity = week % 2 === 0 ? 'paire' : 'impaire';
+  const cycleCfg = list.find((cfg) => cfg.mode === 'cycle');
+  const rhythmLabel = cycleCfg
+    ? `cycle ${cycleCfg.aDays} j / ${cycleCfg.bDays} j`
+    : `semaine ${week} (${parity})`;
 
   const label = (id) => {
     const p = id ? S.profile(id) : null;
@@ -273,7 +295,7 @@ function custodyRowHTML() {
   return `<div class="custody-row">
     <div class="custody-head">
       <span class="custody-label">${multi ? 'Garde : ' : `Garde de ${U.esc(entries[0].cfg.name)} : `}${summaries}
-        <span class="custody-week">· semaine ${week} (${parity})</span>
+        <span class="custody-week">· ${rhythmLabel}</span>
       </span>
       <button class="link" data-action="custody-toggle">${ui.custodyOpen ? 'Fermer' : 'Modifier'}</button>
     </div>
@@ -325,17 +347,24 @@ function agendaHTML() {
   const nextProf = nextSoon ? S.profile(nextSoon.payload.profileId) : null;
   const count = dayOpen.length;
 
-  const hero = `
-    <section class="hero">
-      <span class="hero-brand">Kifékoi</span>
-      <p class="hero-date">${isToday ? "Aujourd\u2019hui · " + U.fmtLong(now) : U.fmtLong(sel)}</p>
-      <h2 class="hero-title">${count === 0
-        ? (isToday ? 'Rien de prévu aujourd\u2019hui' : 'Aucun événement ce jour-là')
-        : `${count} événement${count > 1 ? 's' : ''}${isToday ? ' aujourd\u2019hui' : ''}`}</h2>
-      <p class="hero-sub">${nextSoon
-        ? `Prochain : ${nextProf ? `<span class="pill pill-hero">${nextProf.emoji} ${U.esc(nextProf.name)}</span> ` : ''}${CATS[nextSoon.payload.category]?.icon || '📌'} ${U.esc(nextSoon.payload.title)}${nextSoon.payload.allDay ? '' : ' à ' + U.fmtTime(S.occurrenceStart(nextSoon))}`
-        : (isToday ? 'Profitez-en ✨' : 'Journée libre')}</p>
-    </section>`;
+  // Bandeau compact : uniquement s'il y a des événements aujourd'hui.
+  const showHero = isToday && count > 0;
+
+  const hero = showHero
+    ? `<section class="hero compact">
+        <div class="hero-text">
+          <span class="hero-name">Kifékoi</span>
+          <p class="hero-summary"><b>${count} événement${count > 1 ? 's' : ''}</b>${nextSoon
+            ? ` · ${nextProf ? U.esc(nextProf.name) + ' ' : ''}${CATS[nextSoon.payload.category]?.icon || '📌'} ${U.esc(nextSoon.payload.title)}${nextSoon.payload.allDay ? '' : '\u00A0' + U.fmtTime(S.occurrenceStart(nextSoon))}`
+            : ''}</p>
+        </div>
+        <button class="add-btn hero-add" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </section>`
+    : '';
 
   const overdueBlock = overdueList.length
     ? `<section class="block">
@@ -352,11 +381,11 @@ function agendaHTML() {
           <span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}
         </button>`).join('')}
       </div>
-      <button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
+      ${showHero ? '' : `<button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
           <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
         </svg>
-      </button>
+      </button>`}
     </div>`;
 
   const grid = `
@@ -392,16 +421,17 @@ function agendaHTML() {
             const kid = multiBars ? `<i class="custody-kid">${U.esc((cfg.name || '').trim().charAt(0).toUpperCase())}</i>` : '';
             return `<span class="custody-bar">${kid}<i class="custody-seg" style="--c:${am ? am.color : 'transparent'}"></i><i class="custody-seg" style="--c:${pm ? pm.color : 'transparent'}"></i><b class="custody-sleep" style="--c:${sl ? sl.color : 'var(--muted)'}">${letter}</b></span>`;
           }).join('');
-          const holiday = SCH.schoolHoliday(iso);
+          const holiday = SCH.schoolHoliday(iso, schoolZone());
           return `<button class="cal-day ${d.getMonth() !== m ? 'out' : ''} ${iso === todayISO ? 'today' : ''} ${holiday ? 'is-holiday' : ''} ${iso === ui.selected ? 'sel' : ''} ${list.length ? 'has-events' : ''}"
                     data-action="pick-day" data-date="${iso}">
             ${custodyList.length ? `<span class="custody-bars ${multiBars ? 'multi' : ''}">${bars}</span>` : ''}
-            <span>${d.getDate()}</span>
+            <span class="cal-spacer"></span>
             <span class="dots">${dots}</span>
+            <span class="cal-num">${d.getDate()}</span>
           </button>`;
         }).join('')}
       </div>
-      <p class="cal-legend"><i></i> Vacances scolaires · zone C</p>
+      <p class="cal-legend"><i></i> Vacances scolaires · zone ${schoolZone()}</p>
     </div>`;
 
   const dayBlock = `
@@ -413,7 +443,7 @@ function agendaHTML() {
           <button class="link" data-action="add-event" data-date="${ui.selected}">+ Ajouter</button>
         </div>
       </div>
-      ${(() => { const h = SCH.schoolHoliday(ui.selected); return h ? `<div class="holiday-tag">🏖️ ${U.esc(h.label)} · zone C</div>` : ''; })()}
+      ${(() => { const h = SCH.schoolHoliday(ui.selected, schoolZone()); return h ? `<div class="holiday-tag">🏖️ ${U.esc(h.label)} · zone ${schoolZone()}</div>` : ''; })()}
       ${custodyRowHTML()}
       ${dayAll.length
         ? dayAll.map((i) => eventCard(i)).join('')
@@ -709,6 +739,9 @@ function render(force = false) {
     case 'reminders':
       html = remindersHTML();
       break;
+    case 'bilan':
+      html = bilanHTML();
+      break;
     case 'settings':
       html = settingsHTML();
       break;
@@ -727,11 +760,39 @@ function render(force = false) {
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.view === active));
 
   if (ui.view === 'settings') bindSettings();
+  if (ui.view === 'agenda') setupCalendarSwipe();
 
   if (changedView && !force) window.scrollTo(0, 0);
   else window.scrollTo(0, scroll);
 
   updateSyncDot();
+}
+
+/* Glissement horizontal sur le calendrier pour changer de mois. */
+let calSwipe = null;
+
+function setupCalendarSwipe() {
+  const el = $('.calendar');
+  if (!el) return;
+
+  el.addEventListener('touchstart', (e) => {
+    if (!e.touches || !e.touches.length) return;
+    const t = e.touches[0];
+    calSwipe = { x: t.clientX, y: t.clientY, t: Date.now() };
+  }, { passive: true });
+
+  el.addEventListener('touchend', (e) => {
+    if (!calSwipe) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    const dx = t ? t.clientX - calSwipe.x : 0;
+    const dy = t ? t.clientY - calSwipe.y : 0;
+    const dt = Date.now() - calSwipe.t;
+    calSwipe = null;
+    if (dt > 900 || Math.abs(dx) < 55) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    ui.month = new Date(ui.month.getFullYear(), ui.month.getMonth() + (dx < 0 ? 1 : -1), 1);
+    render(true);
+  }, { passive: true });
 }
 
 function updateSyncDot() {
@@ -1471,6 +1532,254 @@ function profileSheet(id) {
   });
 }
 
+/* ----------------------------- Bilan ------------------------------ */
+
+const EXPENSE_CATS = {
+  cantine: '🍽️ Cantine',
+  sante: '🩺 Santé',
+  ecole: '🎒 École',
+  loisirs: '⚽ Loisirs',
+  vetements: '👕 Vêtements',
+  autres: '📦 Autres',
+};
+
+function bilanRange() {
+  const now = new Date();
+
+  if (ui.bilanPeriod === 'mois') {
+    const d = new Date(now.getFullYear(), now.getMonth() + ui.bilanOffset, 1);
+    return {
+      from: U.toDateISO(d),
+      to: U.toDateISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+      label: U.fmtMonth(d),
+      nav: true,
+    };
+  }
+
+  if (ui.bilanPeriod === 'annee') {
+    const y = now.getFullYear() + ui.bilanOffset;
+    return { from: `${y}-01-01`, to: `${y}-12-31`, label: `Année ${y}`, nav: true };
+  }
+
+  const y = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+  return { from: `${y}-09-01`, to: U.toDateISO(now), label: `Depuis la rentrée · sept. ${y}`, nav: false };
+}
+
+function custodyCounts(from, to) {
+  const out = [];
+  for (const cfg of S.custodyConfigs()) {
+    const counts = { [cfg.evenId]: 0, [cfg.oddId]: 0 };
+    let d = U.parseLocal(from);
+    const end = U.parseLocal(to);
+    let guard = 0;
+    while (d <= end && guard++ < 800) {
+      const day = S.custodyDayFor(cfg, U.toDateISO(d));
+      const owner = day ? (day.sleep || day.am || day.pm) : null;
+      if (owner && counts[owner] != null) counts[owner] += 1;
+      d = U.addDays(d, 1);
+    }
+    out.push({ cfg, counts });
+  }
+  return out;
+}
+
+function expenseBalance(list, parents) {
+  const bal = {};
+  for (const p of parents) bal[p.id] = 0;
+
+  for (const e of list) {
+    const amount = Number(e.amount) || 0;
+
+    if (e.settle) {
+      if (bal[e.from] != null) bal[e.from] += amount;
+      if (bal[e.to] != null) bal[e.to] -= amount;
+      continue;
+    }
+
+    if (bal[e.paidBy] != null) bal[e.paidBy] += amount;
+
+    if (!e.split || e.split === 'half') {
+      for (const p of parents) bal[p.id] -= amount / 2;
+    } else if (typeof e.split === 'object') {
+      for (const p of parents) bal[p.id] -= amount * ((Number(e.split[p.id]) || 0) / 100);
+    } else if (typeof e.split === 'number') {
+      for (const p of parents) bal[p.id] -= amount * (e.split / 100);
+    }
+  }
+
+  return bal;
+}
+
+function euro(cents) {
+  return (Math.round(Number(cents) || 0) / 100).toFixed(2).replace('.', ',') + ' €';
+}
+
+function bilanHTML() {
+  const parents = S.profiles().filter((p) => p.role === 'parent');
+  const range = bilanRange();
+  const counts = custodyCounts(range.from, range.to);
+
+  const periodBar = `
+    <div class="stack">
+      <div class="seg bilan-seg">
+        <button type="button" class="seg-btn ${ui.bilanPeriod === 'rentree' ? 'on' : ''}" data-action="bilan-period" data-id="rentree">Rentrée</button>
+        <button type="button" class="seg-btn ${ui.bilanPeriod === 'mois' ? 'on' : ''}" data-action="bilan-period" data-id="mois">Mois</button>
+        <button type="button" class="seg-btn ${ui.bilanPeriod === 'annee' ? 'on' : ''}" data-action="bilan-period" data-id="annee">Année</button>
+      </div>
+      ${range.nav ? `<div class="bilan-nav">
+        <button class="icon-btn" data-action="bilan-prev" aria-label="Période précédente">‹</button>
+        <b>${U.esc(range.label)}</b>
+        <button class="icon-btn" data-action="bilan-next" aria-label="Période suivante">›</button>
+      </div>` : `<p class="bilan-label">${U.esc(range.label)}</p>`}
+    </div>`;
+
+  const custodyBlock = counts.length
+    ? `<section class="block">
+        <div class="block-head"><h2>Garde</h2><span class="count">${U.fmtDateY(U.parseLocal(range.from))} → ${U.fmtDateY(U.parseLocal(range.to))}</span></div>
+        ${counts.map(({ cfg, counts: c }) => {
+          const total = (c[cfg.evenId] || 0) + (c[cfg.oddId] || 0) || 1;
+          const row = (id) => {
+            const p = S.profile(id) || {};
+            const n = c[id] || 0;
+            const pct = Math.round((n / total) * 100);
+            return `<div class="bilan-row">
+              <span class="bilan-name"><i class="bilan-dot" style="--c:${p.color || '#94a3b8'}"></i>${U.esc(p.name || 'Parent')}</span>
+              <span class="bilan-bar"><i style="width:${pct}%; --c:${p.color || '#94a3b8'}"></i></span>
+              <b class="bilan-num">${n} j</b>
+            </div>`;
+          };
+          return `<div class="bilan-child">
+            <p class="bilan-child-head">${cfg.emoji} <b>${U.esc(cfg.name)}</b><span>${total} jours</span></p>
+            ${row(cfg.evenId)}${row(cfg.oddId)}
+          </div>`;
+        }).join('')}
+      </section>`
+    : `<section class="block">
+        <div class="block-head"><h2>Garde</h2></div>
+        <div class="card empty small"><p>Aucune garde alternée configurée.</p>
+        <button class="btn ghost" data-action="nav" data-view="settings">Configurer</button></div>
+      </section>`;
+
+  const list = S.expenses().filter((e) => e.date >= range.from && e.date <= range.to);
+  const bal = expenseBalance(list, parents);
+  const paidTotals = {};
+  for (const p of parents) paidTotals[p.id] = 0;
+  for (const e of list) if (!e.settle && paidTotals[e.paidBy] != null) paidTotals[e.paidBy] += Number(e.amount) || 0;
+
+  let debt = null;
+  if (parents.length === 2) {
+    const [a, b] = parents;
+    const va = bal[a.id] || 0;
+    const vb = bal[b.id] || 0;
+    if (Math.abs(va - vb) >= 1) {
+      const [debtor, creditor, amount] = va < vb ? [a, b, (vb - va) / 2] : [b, a, (va - vb) / 2];
+      debt = { debtor, creditor, amount: Math.round(amount) };
+    }
+  }
+
+  const expenseRows = list.filter((e) => !e.settle).map((e) => {
+    const payer = S.profile(e.paidBy) || {};
+    const d = U.parseLocal(e.date);
+    return `<button class="exp-row" data-action="edit-expense" data-id="${e.id}">
+      <span class="exp-date"><b>${d.getDate()}</b><i>${U.fmtMonthShort(e.date)}</i></span>
+      <span class="exp-main">
+        <b>${U.esc(e.label || 'Dépense')}</b>
+        <span class="muted">${EXPENSE_CATS[e.category] || EXPENSE_CATS.autres} · payé par ${U.esc(payer.name || '—')}</span>
+      </span>
+      <span class="exp-amount">${euro(e.amount)}</span>
+    </button>`;
+  }).join('');
+
+  const expenseBlock = `
+    <section class="block">
+      <div class="block-head"><h2>Dépenses</h2><span class="count">${list.filter((e) => !e.settle).length}</span></div>
+      <div class="card balance-card">
+        <div class="bal-summary">${parents.map((p) => `<span class="bal-chip"><i style="--c:${p.color}"></i>${U.esc(p.name)} : ${euro(paidTotals[p.id] || 0)}</span>`).join('')}</div>
+        <p class="bal-line ${debt ? '' : 'ok'}">${parents.length < 2
+          ? 'Ajoutez deux parents pour calculer un partage.'
+          : debt
+            ? `<b>${U.esc(debt.debtor.name)}</b> doit <b>${euro(debt.amount)}</b> à <b>${U.esc(debt.creditor.name)}</b>`
+            : 'Comptes à l\'équilibre ✓'}</p>
+        <div class="row gap">
+          <button class="btn primary grow" data-action="add-expense">＋ Ajouter une dépense</button>
+          ${debt ? `<button class="btn ghost" data-action="settle-expense">Remboursé</button>` : ''}
+        </div>
+      </div>
+      ${expenseRows ? `<div class="exp-list">${expenseRows}</div>` : '<p class="hint">Aucune dépense sur cette période.</p>'}
+    </section>`;
+
+  return `<div class="stack">
+    <h1 class="page-title">Bilan</h1>
+    ${periodBar}
+    ${custodyBlock}
+    ${expenseBlock}
+  </div>`;
+}
+
+function expenseSheet(id) {
+  const rec = id ? S.get(id) : null;
+  const p = rec && rec.payload && rec.payload.expense ? rec.payload : null;
+  const parents = S.profiles().filter((x) => x.role === 'parent');
+
+  if (parents.length < 2) {
+    toast('Ajoutez d\u2019abord deux personnes de type « Parent »');
+    return;
+  }
+
+  const paidBy = p ? p.paidBy : parents[0].id;
+  const cat = p ? p.category || 'autres' : 'autres';
+  let splitValue = 'half';
+  if (p && p.split && typeof p.split === 'object') {
+    splitValue = String(Number(p.split[parents[0].id]) || 0);
+  }
+
+  const opt = (v, label, cur) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${label}</option>`;
+
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>${p ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Libellé</span>
+          <input id="expLabel" maxlength="60" value="${p ? U.esc(p.label || '') : ''}" placeholder="Cantine de novembre">
+        </label>
+        <div class="row gap">
+          <label class="field grow"><span>Montant (€)</span>
+            <input id="expAmount" type="number" step="0.01" min="0" inputmode="decimal" value="${p ? (Number(p.amount) / 100).toFixed(2) : ''}" placeholder="0,00">
+          </label>
+          <label class="field grow"><span>Date</span>
+            <input id="expDate" type="date" value="${p && p.date ? p.date : U.toDateISO()}">
+          </label>
+        </div>
+        <label class="field"><span>Payé par</span>
+          <select id="expPaidBy">${parents.map((x) => opt(x.id, `${x.emoji} ${U.esc(x.name)}`, paidBy)).join('')}</select>
+        </label>
+        <label class="field"><span>Catégorie</span>
+          <select id="expCat">${Object.entries(EXPENSE_CATS).map(([k, v]) => opt(k, v, cat)).join('')}</select>
+        </label>
+        <label class="field"><span>Partage</span>
+          <select id="expSplit">
+            ${opt('half', '50 % / 50 %', splitValue)}
+            ${opt('60', `60 % ${U.esc(parents[0].name)} / 40 % ${U.esc(parents[1].name)}`, splitValue)}
+            ${opt('40', `40 % ${U.esc(parents[0].name)} / 60 % ${U.esc(parents[1].name)}`, splitValue)}
+            ${opt('100', `100 % ${U.esc(parents[0].name)}`, splitValue)}
+            ${opt('0', `100 % ${U.esc(parents[1].name)}`, splitValue)}
+          </select>
+        </label>
+        <label class="field"><span>Note (facultatif)</span>
+          <input id="expNote" maxlength="120" value="${p ? U.esc(p.note || '') : ''}">
+        </label>
+      </div>
+      <div class="sheet-foot">
+        ${p ? `<button type="button" class="btn ghost danger" data-action="delete-expense" data-id="${id}">Supprimer</button>` : ''}
+        <button type="button" class="btn primary grow" data-action="save-expense" data-id="${id || ''}">Enregistrer</button>
+      </div>
+    </div>
+  `);
+}
+
 /* ---------------------------- Demandes ---------------------------- */
 
 function requestsSheet() {
@@ -1578,6 +1887,20 @@ function accountsHTML() {
   </div>`;
 }
 
+function nextCustodySwitch(raw) {
+  if (!raw) return null;
+  const cfg = { ...raw, mode: raw.mode || 'parity' };
+  const today = U.toDateISO(new Date());
+  let prev = S.custodyBaseFor(cfg, today);
+  if (!prev) return null;
+  for (let i = 1; i <= 400; i++) {
+    const iso = U.toDateISO(U.addDays(U.parseLocal(today), i));
+    const next = S.custodyBaseFor(cfg, iso);
+    if (next && next !== prev) return { date: iso, ownerId: next };
+  }
+  return null;
+}
+
 function settingsHTML() {
   const st = Sync.status;
   const ns = notifState();
@@ -1629,14 +1952,20 @@ function settingsHTML() {
     : (childCandidates[0] ? childCandidates[0].id : null);
   const selected = selectedId ? S.profile(selectedId) : null;
   const raw = selectedId ? S.custodyRawFor(selectedId) : null;
-  const weekNow = U.isoWeekNumber(new Date());
-  const parityNow = weekNow % 2 === 0 ? 'paire' : 'impaire';
-  const weekOwner = raw && raw.evenId && raw.oddId ? S.profile(weekNow % 2 === 0 ? raw.evenId : raw.oddId) : null;
+  const isCycle = !!(raw && raw.mode === 'cycle');
+  const aDays = isCycle ? (Number(raw.aDays) || 7) : 7;
+  const bDays = isCycle ? (Number(raw.bDays) || 7) : 7;
+  const anchorISO = isCycle && raw.anchor ? raw.anchor : U.toDateISO(new Date());
+  const profA = raw && raw.evenId ? S.profile(raw.evenId) : null;
+  const profB = raw && raw.oddId ? S.profile(raw.oddId) : null;
+  const nameA = profA ? profA.name : 'Parent 1';
+  const nameB = profB ? profB.name : 'Parent 2';
+  const switcher = raw && raw.enabled ? nextCustodySwitch(raw) : null;
   const enabledChildren = childCandidates.filter((p) => p.custody && p.custody.enabled).length;
   const custodyBlock = `
     <div class="settings-block">
       <h3>🗓️ Garde alternée</h3>
-      <p class="muted"><b>Facultatif</b> — pour les parents séparés. Une barre colorée indique qui garde chaque enfant au-dessus de chaque jour. Les semaines paires / impaires suivent les numéros de semaine (lundi à dimanche). Chaque enfant a ses propres réglages.</p>
+      <p class="muted"><b>Facultatif</b> — pour les parents séparés. Une barre colorée indique qui garde chaque enfant au-dessus de chaque jour. Chaque enfant a ses propres réglages.</p>
       ${childCandidates.length === 0
         ? '<p class="hint">Ajoutez d\u2019abord un enfant dans l\u2019onglet Personnes (champ « Type »).</p>'
         : `<label class="field"><span>Enfant à configurer${enabledChildren ? ` (${enabledChildren} actif${enabledChildren > 1 ? 's' : ''})` : ''}</span>
@@ -1646,22 +1975,43 @@ function settingsHTML() {
       </label>
       <label class="switch"><input type="checkbox" id="custodyEnabled" ${raw && raw.enabled ? 'checked' : ''}><span>Garde alternée pour ${U.esc(selected ? selected.name : 'cet enfant')}</span></label>
       ${raw && raw.enabled && raw.evenId && raw.oddId ? `
-        <div class="field"><span>Semaines paires avec</span>
+        <div class="field"><span>Période 1 avec</span>
           <div class="chips">
             ${parentCandidates.length
               ? parentCandidates.map((p) => `<button type="button" class="chip ${raw.evenId === p.id ? 'on' : ''}" data-custody-even="${p.id}" style="--c:${p.color}"><span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}</button>`).join('')
               : '<span class="hint">Aucun profil de type « Parent ».</span>'}
           </div>
         </div>
-        <div class="field"><span>Semaines impaires avec</span>
+        <div class="field"><span>Période 2 avec</span>
           <div class="chips">
             ${parentCandidates.length
               ? parentCandidates.map((p) => `<button type="button" class="chip ${raw.oddId === p.id ? 'on' : ''}" data-custody-odd="${p.id}" style="--c:${p.color}"><span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}</button>`).join('')
               : '<span class="hint">Aucun profil de type « Parent ».</span>'}
           </div>
         </div>
+        <div class="field"><span>Rythme de garde</span>
+          <div class="chips">
+            <button type="button" class="chip ${isCycle && aDays === 7 && bDays === 7 ? 'on' : ''}" data-custody-preset="7-7">1 sem. / 1 sem.</button>
+            <button type="button" class="chip ${isCycle && aDays === 14 && bDays === 14 ? 'on' : ''}" data-custody-preset="14-14">2 sem. / 2 sem.</button>
+            <button type="button" class="chip ${isCycle && aDays === 3 && bDays === 4 ? 'on' : ''}" data-custody-preset="3-4">3 j / 4 j</button>
+            <button type="button" class="chip ${isCycle && aDays === 4 && bDays === 3 ? 'on' : ''}" data-custody-preset="4-3">4 j / 3 j</button>
+          </div>
+        </div>
+        <div class="row gap">
+          <label class="field grow"><span>Jours chez ${U.esc(nameA)}</span>
+            <input type="number" min="1" max="60" step="1" id="custodyA" value="${aDays}">
+          </label>
+          <label class="field grow"><span>Jours chez ${U.esc(nameB)}</span>
+            <input type="number" min="1" max="60" step="1" id="custodyB" value="${bDays}">
+          </label>
+        </div>
+        <label class="field"><span>Début du rythme (chez ${U.esc(nameA)})</span>
+          <input type="date" id="custodyAnchor" value="${anchorISO}">
+        </label>
+        <p class="hint">${isCycle
+          ? `Rythme : <b>${aDays} jour${aDays > 1 ? 's' : ''}</b> chez ${U.esc(nameA)}, puis <b>${bDays} jour${bDays > 1 ? 's' : ''}</b> chez ${U.esc(nameB)}.${switcher ? ` Prochain changement : <b>${U.fmtDateY(switcher.date)}</b>${S.profile(switcher.ownerId) ? ' chez ' + U.esc(S.profile(switcher.ownerId).name) : ''}.` : ''}`
+          : `Réglage actuel : semaines paires chez ${U.esc(nameA)}, impaires chez ${U.esc(nameB)}. Choisissez un rythme (ou modifiez les jours) pour le remplacer.`}</p>
         ${parentCandidates.length < 2 ? '<p class="hint">Il faut au moins deux personnes de type « Parent » pour alterner.</p>' : ''}
-        <p class="hint">Cette semaine : <b>semaine ${weekNow} (${parityNow})</b> → ${weekOwner ? U.esc(weekOwner.name) : '—'}.</p>
         ${childCandidates.length > 1 && enabledChildren > 1 ? '<button class="btn ghost wide" data-action="custody-apply-all">↔ Appliquer ces règles à tous les enfants</button>' : ''}
       ` : ''}
       `}
@@ -1725,6 +2075,15 @@ function settingsHTML() {
     </div>
 
     ${pushBlock}
+
+    <div class="settings-block">
+      <h3>🏫 Zone de vacances scolaires</h3>
+      <p class="muted">Utilisée pour afficher les vacances dans le calendrier.</p>
+      <div class="chips">
+        ${['A', 'B', 'C'].map((z) => `<button type="button" class="chip ${schoolZone() === z ? 'on' : ''}" data-action="set-zone" data-id="${z}">Zone ${z}</button>`).join('')}
+      </div>
+      <p class="hint">A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers · B : Aix-Marseille, Amiens, Lille, Nancy-Metz, Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg · C : Créteil, Montpellier, Paris, Toulouse, Versailles.</p>
+    </div>
 
     <div class="settings-block">
       <h3>💾 Données</h3>
@@ -1797,6 +2156,10 @@ function bindSettings() {
         const maman = parents.find((p) => /^maman$/i.test(p.name)) || parents.find((p) => p.id !== (papa && papa.id));
         patch.evenId = cur.evenId || (papa && papa.id);
         patch.oddId = cur.oddId || (maman && maman.id);
+        patch.mode = cur.mode || 'cycle';
+        patch.aDays = cur.aDays || 7;
+        patch.bDays = cur.bDays || 7;
+        patch.anchor = cur.anchor || U.toDateISO(new Date());
       }
       S.saveCustody(id, patch);
       ui.custodyChildId = id;
@@ -1819,6 +2182,44 @@ function bindSettings() {
     ui.custodyChildId = id;
     render(true);
   }));
+
+  $$('[data-custody-preset]').forEach((btn) => btn.addEventListener('click', () => {
+    const id = currentChild();
+    if (!id) return;
+    const [a, b] = String(btn.dataset.custodyPreset).split('-').map(Number);
+    const cur = S.custodyRawFor(id) || {};
+    const patch = { mode: 'cycle', aDays: a || 7, bDays: b || 7 };
+    if (!cur.anchor) patch.anchor = U.toDateISO(new Date());
+    S.saveCustody(id, patch);
+    ui.custodyChildId = id;
+    render(true);
+  }));
+
+  const aInput = $('#custodyA');
+  if (aInput) aInput.addEventListener('change', () => {
+    const id = currentChild();
+    if (!id) return;
+    const v = Math.max(1, Math.min(60, Math.round(Number(aInput.value) || 7)));
+    S.saveCustody(id, { mode: 'cycle', aDays: v });
+    render(true);
+  });
+
+  const bInput = $('#custodyB');
+  if (bInput) bInput.addEventListener('change', () => {
+    const id = currentChild();
+    if (!id) return;
+    const v = Math.max(1, Math.min(60, Math.round(Number(bInput.value) || 7)));
+    S.saveCustody(id, { mode: 'cycle', bDays: v });
+    render(true);
+  });
+
+  const anchorInput = $('#custodyAnchor');
+  if (anchorInput) anchorInput.addEventListener('change', () => {
+    const id = currentChild();
+    if (!id || !anchorInput.value) return;
+    S.saveCustody(id, { mode: 'cycle', anchor: anchorInput.value });
+    render(true);
+  });
 
   const approvalBox = $('#approvalOn');
   if (approvalBox) {
@@ -2216,7 +2617,15 @@ function onAction(e) {
       const raw = id ? S.custodyRawFor(id) : null;
       if (!raw || !raw.evenId || !raw.oddId) break;
       for (const p of S.profiles().filter((x) => x.role === 'child')) {
-        S.saveCustody(p.id, { enabled: true, evenId: raw.evenId, oddId: raw.oddId });
+        S.saveCustody(p.id, {
+          enabled: true,
+          evenId: raw.evenId,
+          oddId: raw.oddId,
+          mode: raw.mode,
+          aDays: raw.aDays,
+          bDays: raw.bDays,
+          anchor: raw.anchor,
+        });
       }
       toast('Règles appliquées à tous les enfants');
       render(true);
@@ -2261,6 +2670,98 @@ function onAction(e) {
     case 'help':
       helpSheet();
       break;
+    case 'bilan-period':
+      ui.bilanPeriod = el.dataset.id || 'rentree';
+      ui.bilanOffset = 0;
+      render(true);
+      break;    case 'bilan-prev':
+      ui.bilanOffset -= 1;
+      render(true);
+      break;
+    case 'bilan-next':
+      ui.bilanOffset += 1;
+      render(true);
+      break;
+    case 'set-zone':
+      setSchoolZone(el.dataset.id);
+      toast(`Zone ${el.dataset.id} sélectionnée`);
+      render(true);
+      break;
+    case 'add-expense':
+      expenseSheet();
+      break;
+    case 'edit-expense':
+      expenseSheet(id);
+      break;
+    case 'save-expense': {
+      const label = ($('#expLabel').value || '').trim();
+      const amountRaw = String($('#expAmount').value || '').replace(',', '.');
+      const amount = Math.round((parseFloat(amountRaw) || 0) * 100);
+      const date = $('#expDate').value || U.toDateISO();
+      const paidBy = $('#expPaidBy').value;
+      const category = $('#expCat').value;
+      const splitSel = $('#expSplit').value;
+      const note = ($('#expNote').value || '').trim();
+
+      if (!label) { toast('Indiquez un libellé'); break; }
+      if (amount <= 0) { toast('Montant invalide'); break; }
+
+      const parents = S.profiles().filter((x) => x.role === 'parent');
+      let split = 'half';
+      if (splitSel !== 'half' && parents.length >= 2) {
+        const first = Number(splitSel);
+        split = { [parents[0].id]: first, [parents[1].id]: 100 - first };
+      }
+
+      const payload = { label, amount, date, paidBy, category, split, note };
+      const existing = id ? S.get(id) : null;
+
+      if (existing && existing.kind === 'note' && existing.payload && existing.payload.expense) {
+        S.update(id, { expense: true, ...payload });
+      } else {
+        S.addExpense(payload);
+      }
+
+      closeSheet();
+      toast('Dépense enregistrée');
+      render(true);
+      break;
+    }
+    case 'delete-expense':
+      S.removeExpense(id);
+      closeSheet();
+      toast('Dépense supprimée');
+      render(true);
+      break;
+    case 'settle-expense': {
+      const parents = S.profiles().filter((x) => x.role === 'parent');
+      if (parents.length < 2) break;
+      const range = bilanRange();
+      const list = S.expenses().filter((e) => e.date >= range.from && e.date <= range.to);
+      const bal = expenseBalance(list, parents);
+      const [a, b] = parents;
+      const va = bal[a.id] || 0;
+      const vb = bal[b.id] || 0;
+      if (Math.abs(va - vb) < 1) break;
+      const debtor = va < vb ? a : b;
+      const creditor = va < vb ? b : a;
+      const amount = Math.round(Math.abs(va - vb) / 2);
+      S.addExpense({
+        settle: true,
+        date: U.toDateISO(),
+        amount,
+        from: debtor.id,
+        to: creditor.id,
+        label: 'Remboursement',
+        category: 'autres',
+        note: '',
+        paidBy: debtor.id,
+        split: 'half',
+      });
+      toast(`Remboursement de ${euro(amount)} enregistré`);
+      render(true);
+      break;
+    }
     case 'native-diag':
       nativeDiagSheet();
       break;
@@ -2436,6 +2937,16 @@ function boot() {
 
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
+  }
+
+  const splash = document.getElementById('splash');
+  if (splash) {
+    // L'écran de démarrage reste visible au moins 2 secondes.
+    const wait = Math.max(0, 2000 - performance.now());
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => splash.remove(), 420);
+    }, wait);
   }
 
   // Tutoriel de premier lancement : uniquement sur une installation neuve.

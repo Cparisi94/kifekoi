@@ -19,7 +19,7 @@ export const TUTORIAL = [
   {
     emoji: '🔁',
     title: '3. Garde alternée (facultatif)',
-    text: "Cette étape est <b>facultative</b> : elle concerne les <b>parents séparés</b>. Dans <b>Réglages → Garde alternée</b>, choisissez qui garde chaque enfant les semaines paires et impaires. Pour un jour particulier : <b>Agenda → le jour → Modifier</b>.",
+    text: "Cette étape est <b>facultative</b> : elle concerne les <b>parents séparés</b>. Dans <b>Réglages → Garde alternée</b>, choisissez le rythme (1 semaine / 1 semaine, 2 semaines / 2 semaines, ou un nombre de jours) et la date de départ. Pour un jour particulier : <b>Agenda → le jour → Modifier</b>.",
   },
   {
     emoji: '🤝',
@@ -69,7 +69,7 @@ export const HELP_SECTIONS = [
       <li><b>Journée entière</b> pour les vacances ou les dates sans heure précise.</li>
       <li><b>Répétition</b> : tous les jours, semaines, mois ou années, avec une fin (date) ou un nombre de fois.</li>
       <li>Un événement peut être marqué <b>fait</b> (case à cocher) ou <b>supprimé</b> depuis sa fiche.</li>
-      <li>Les <b>vacances scolaires</b> (zone C) apparaissent automatiquement en orange.</li>
+      <li>Les <b>vacances scolaires</b> (selon la zone choisie dans les réglages) apparaissent automatiquement en orange.</li>
     </ul>`,
   },
   {
@@ -77,7 +77,8 @@ export const HELP_SECTIONS = [
     title: 'Garde alternée et exceptions',
     html: `<ul class="help-list">
       <li><b>Facultatif</b> : cette partie sert uniquement si les <b>parents sont séparés</b> et se partagent la garde des enfants.</li>
-      <li>Réglages → <b>Garde alternée</b> : choisissez l'enfant, activez, puis désignez le parent des <b>semaines paires</b> et des <b>semaines impaires</b>.</li>
+      <li>Réglages → <b>Garde alternée</b> : choisissez l'enfant, activez, puis désignez les deux parents.</li>
+      <li><b>Rythme</b> : 1 semaine / 1 semaine, 2 semaines / 2 semaines, 3 j / 4 j… ou un nombre de jours libre (7 = 1 semaine), avec une <b>date de départ</b> : le changement peut donc tomber un mercredi, un vendredi, etc.</li>
       <li>Chaque enfant a ses propres règles. « Appliquer à tous les enfants » copie la règle en cours.</li>
       <li>Les barres au-dessus du calendrier indiquent chez qui se passe <b>le matin</b> et <b>l'après-midi</b> ; la lettre indique où l'enfant <b>dort</b>.</li>
       <li>Pour un jour précis : <b>Agenda → le jour → Modifier</b> → Matin / Après-midi / Nuit.</li>
@@ -124,6 +125,17 @@ export const HELP_SECTIONS = [
       <li><b>Restaurer</b> réimporte un fichier de sauvegarde (les doublons sont évités).</li>
       <li><b>Nettoyer les doublons de personnes</b> fusionne les fiches portant le même nom et réaffecte leurs événements.</li>
       <li>Les données restent sur le téléphone : sans compte, elles ne sont pas partagées.</li>
+    </ul>`,
+  },
+  {
+    emoji: '📊',
+    title: 'Bilan et dépenses partagées',
+    html: `<ul class="help-list">
+      <li>Onglet <b>Bilan</b> : nombre de jours de garde par parent pour chaque enfant, sur une période au choix (<b>depuis la rentrée</b>, un <b>mois</b> ou une <b>année</b>).</li>
+      <li><b>Dépenses</b> : bouton « ＋ Ajouter une dépense » — libellé, montant, date, qui a payé, catégorie.</li>
+      <li>Le partage est de <b>50/50</b> par défaut ; il peut être modifié (60/40, 100 % pour un parent) au cas par cas.</li>
+      <li>Le <b>solde</b> s'affiche automatiquement : « Papa doit 42,50 € à Maman ».</li>
+      <li>Le bouton <b>Remboursé</b> enregistre le remboursement et remet le solde à zéro.</li>
     </ul>`,
   },
   {

@@ -410,10 +410,30 @@ export function events() {
 
 export function notes() {
   return all('note')
-    .filter((r) => !(r.payload && r.payload.request))
+    .filter((r) => !(r.payload && (r.payload.request || r.payload.expense)))
     .sort(
       (a, b) => (b.payload.pinned ? 1 : 0) - (a.payload.pinned ? 1 : 0) || b.updatedAt - a.updatedAt,
     );
+}
+
+/* ------------------------------------------------------------------ */
+/* Dépenses partagées                                                  */
+/* ------------------------------------------------------------------ */
+
+export function expenses() {
+  return all('note')
+    .filter((r) => r.payload && r.payload.expense)
+    .map((r) => ({ id: r.id, ...r.payload }))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))
+      || (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+export function addExpense(data) {
+  return put('note', { expense: true, createdAt: Date.now(), ...data });
+}
+
+export function removeExpense(id) {
+  remove(id);
 }
 
 /* ------------------------------------------------------------------ */
@@ -630,6 +650,10 @@ export function custodyConfigs() {
       evenId: c.evenId,
       oddId: c.oddId,
       overrides: c.overrides || {},
+      mode: c.mode || 'parity',
+      anchor: c.anchor || null,
+      aDays: Number(c.aDays) || 0,
+      bDays: Number(c.bDays) || 0,
     });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -662,6 +686,17 @@ export function custodyBaseFor(cfg, dateISO) {
     if (!p.endDate || p.category !== 'vacances' || p.affectsCustody !== true) continue;
     if (!parents.includes(p.profileId)) continue;
     if (dateISO >= p.date && dateISO <= p.endDate) return p.profileId;
+  }
+
+  // Rythme personnalisé : période A (evenId) puis période B (oddId),
+  // en jours, à partir d'une date de référence.
+  if (cfg.mode === 'cycle' && cfg.anchor && cfg.aDays > 0 && cfg.bDays > 0) {
+    const start = parseLocal(cfg.anchor);
+    const d = parseLocal(dateISO);
+    const days = Math.round((d - start) / 86400000);
+    const cycle = cfg.aDays + cfg.bDays;
+    const pos = ((days % cycle) + cycle) % cycle;
+    return pos < cfg.aDays ? cfg.evenId : cfg.oddId;
   }
 
   const week = isoWeekNumber(parseLocal(dateISO));
