@@ -1138,7 +1138,7 @@ function eventSheet(id, opts = {}) {
         </div>
 
         ${!rec ? `<div class="field">
-          <span>Modèles (facultatif)</span>
+          <span>Motifs (facultatif)</span>
           <div class="chips scroll" id="tplChips">
             ${EVENT_TEMPLATES.map((t, i) => `<button type="button" class="chip" data-tpl="${i}">${t.label}</button>`).join('')}
           </div>
@@ -1251,7 +1251,7 @@ function eventSheet(id, opts = {}) {
       refreshImpact();
       sheetDraft.reminders = new Set(tpl.reminders);
       $$('#remChips .chip').forEach((c) => c.classList.toggle('on', sheetDraft.reminders.has(Number(c.dataset.rem))));
-      toast(`Modèle « ${tpl.title} » appliqué`, 1800);
+      toast(`Motif « ${tpl.title} » appliqué`, 1800);
     });
   }
 
@@ -1745,6 +1745,61 @@ function euro(cents) {
   return (Math.round(Number(cents) || 0) / 100).toFixed(2).replace('.', ',') + ' €';
 }
 
+function addMonthsISO(dateISO, months) {
+  const d = U.parseLocal(dateISO);
+  const day = d.getDate();
+  const target = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, last));
+  return U.toDateISO(target);
+}
+
+function exportExpensesCSV() {
+  const range = bilanRange();
+  const list = S.expenses().filter((e) => !e.settle && e.date >= range.from && e.date <= range.to);
+  if (!list.length) {
+    toast('Aucune dépense sur cette période');
+    return;
+  }
+
+  const cleanCat = (k) => (EXPENSE_CATS[k] || EXPENSE_CATS.autres).replace(/^[^\s]+\s+/, '');
+  const rows = [['Date', 'Libellé', 'Catégorie', 'Montant (€)', 'Payé par', 'Partage', 'Note']];
+
+  for (const e of list) {
+    const payer = (S.profile(e.paidBy) || {}).name || '';
+    let share = '50/50';
+    if (e.split && typeof e.split === 'object') {
+      share = Object.entries(e.split)
+        .map(([id, pct]) => `${(S.profile(id) || {}).name || '?'} ${pct} %`)
+        .join(' / ');
+    }
+    rows.push([
+      e.date,
+      e.label || '',
+      cleanCat(e.category),
+      (Number(e.amount) / 100).toFixed(2).replace('.', ','),
+      payer,
+      share,
+      e.note || '',
+    ]);
+  }
+
+  const csv = '\uFEFF' + rows
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kifekoi-depenses-${range.from}-${range.to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Export CSV téléchargé ✓', 3000);
+}
+
 function bilanHTML() {
   const parents = S.profiles().filter((p) => p.role === 'parent');
   const range = bilanRange();
@@ -1835,6 +1890,7 @@ function bilanHTML() {
           <button class="btn primary grow" data-action="add-expense">＋ Ajouter une dépense</button>
           ${debt ? `<button class="btn ghost" data-action="settle-expense">Remboursé</button>` : ''}
         </div>
+        <button class="btn ghost wide" data-action="export-expenses">⬇ Exporter en CSV</button>
       </div>
       ${expenseRows ? `<div class="exp-list">${expenseRows}</div>` : '<p class="hint">Aucune dépense sur cette période.</p>'}
     </section>`;
@@ -1936,6 +1992,11 @@ function expenseSheet(id) {
         <label class="field"><span>Note (facultatif)</span>
           <input id="expNote" maxlength="120" value="${p ? U.esc(p.note || '') : ''}">
         </label>
+        ${p ? '' : `<label class="field"><span>Répéter</span>
+          <select id="expRepeat">
+            ${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i === 0 ? 'Une seule fois' : (i + 1) + ' mois'}</option>`).join('')}
+          </select>
+        </label>`}
       </div>
       <div class="sheet-foot">
         ${p ? `<button type="button" class="btn ghost danger" data-action="delete-expense" data-id="${id}">Supprimer</button>` : ''}
@@ -3059,15 +3120,21 @@ function onAction(e) {
 
       const payload = { label, amount, date, paidBy, category, split, note };
       const existing = id ? S.get(id) : null;
+      const repeatInput = $('#expRepeat');
+      const months = repeatInput ? Math.max(1, Math.min(24, Number(repeatInput.value) || 1)) : 1;
 
       if (existing && existing.kind === 'note' && existing.payload && existing.payload.expense) {
         S.update(id, { expense: true, ...payload });
       } else {
-        S.addExpense(payload);
+        for (let i = 0; i < months; i += 1) {
+          S.addExpense({ ...payload, date: addMonthsISO(date, i) });
+        }
       }
 
       closeSheet();
-      toast('Dépense enregistrée');
+      toast(months > 1
+        ? `Dépense enregistrée · ${months} échéances (jusqu'au ${U.fmtDateY(U.parseLocal(addMonthsISO(date, months - 1)))})`
+        : 'Dépense enregistrée', 4000);
       render(true);
       break;
     }
@@ -3076,6 +3143,9 @@ function onAction(e) {
       closeSheet();
       toast('Dépense supprimée');
       render(true);
+      break;
+    case 'export-expenses':
+      exportExpensesCSV();
       break;
     case 'settle-expense': {
       const parents = S.profiles().filter((x) => x.role === 'parent');
