@@ -387,18 +387,20 @@ function agendaHTML() {
 
   const filters = `
     <div class="filter-row">
-      <div class="chips scroll">
+      <div class="chips filter-chips">
         <button class="chip ${ui.filter === 'all' ? 'on' : ''}" data-action="filter" data-id="all">Tout</button>
         ${S.profiles().map((p) => `<button class="chip chip-person ${ui.filter === p.id ? 'on' : ''}" data-action="filter" data-id="${p.id}" style="--c:${p.color}">
           <span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}
         </button>`).join('')}
       </div>
-      <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
-      ${showHero ? '' : `<button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
-        </svg>
-      </button>`}
+      <div class="filter-actions">
+        <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
+        ${showHero ? '' : `<button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+          </svg>
+        </button>`}
+      </div>
     </div>`;
 
   const weekMode = ui.calView === 'week';
