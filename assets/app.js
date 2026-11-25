@@ -412,12 +412,17 @@ function agendaHTML() {
         const list = byDate[iso] || S.occurrencesBetween(iso, iso, ui.filter);
         const cust = S.custodyDays(iso);
         const nm = (id) => { const pr = id ? S.profile(id) : null; return pr ? pr.name : '—'; };
+        const part = (id, icon, label) => {
+          const pr = id ? S.profile(id) : null;
+          return `<span class="wk-part" style="--c:${pr ? pr.color : '#94a3b8'}" title="${label} : ${U.esc(pr ? pr.name : '—')}">${icon} ${pr && pr.emoji ? pr.emoji : '·'}</span>`;
+        };
         const custLine = cust.map(({ cfg, day }) => {
-          const same = day.am === day.pm && day.pm === day.sleep;
-          const txt = same
-            ? nm(day.am)
-            : `${nm(day.am)} → ${nm(day.pm)}${day.sleep !== day.pm ? ' · nuit ' + nm(day.sleep) : ''}`;
-          return `<span class="wk-cust" style="--c:${(S.profile(day.sleep) || {}).color || '#94a3b8'}"><b>${cfg.emoji}</b> ${U.esc(txt)}</span>`;
+          const uniform = day.am === day.pm && day.pm === day.sleep;
+          const pr = day.am ? S.profile(day.am) : null;
+          const body = uniform
+            ? `<span class="wk-part" style="--c:${pr ? pr.color : '#94a3b8'}" title="Toute la journée : ${U.esc(pr ? pr.name : '—')}">${pr && pr.emoji ? pr.emoji : '·'}</span>`
+            : `${part(day.am, '☀️', 'Matin')}${part(day.pm, '🌤', 'Après-midi')}${part(day.sleep, '🛏️', 'Nuit')}`;
+          return `<span class="wk-cust"><b>${cfg.emoji}</b>${body}</span>`;
         }).join('');
         const evs = list.slice(0, 3).map((i) => `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}</span>`).join('');
         return `<button type="button" class="wk-day ${iso === ui.selected ? 'sel' : ''} ${iso === todayISO ? 'today' : ''}" data-action="pick-day" data-date="${iso}">

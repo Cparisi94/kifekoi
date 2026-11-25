@@ -1757,3 +1757,22 @@ iframe[id^="nl-badge"] {
 .wk-none { font-size: 10.5px; color: var(--muted); font-style: italic; }
 .wk-day.sel .wk-none { color: rgba(255, 255, 255, .75); }
 .week-head-title { text-transform: none; }
+
+/* Vue semaine : matin / après-midi / nuit */
+.wk-cust { display: inline-flex; align-items: center; gap: 4px; }
+.wk-cust b { margin-right: 1px; font-size: 12px; }
+.wk-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--c, #94a3b8) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c, #94a3b8) 34%, transparent);
+  color: var(--text);
+  white-space: nowrap;
+}
+.wk-day.sel .wk-part { background: rgba(255, 255, 255, .92); border-color: transparent; color: #0d2733; }
+.wk-part { font-size: 11px; padding: 2px 7px; }
