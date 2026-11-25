@@ -125,6 +125,22 @@
       return scheduleAt(999999, 'Kifékoï', 'Notification de test 🎉', new Date(Date.now() + 4000));
     },
 
+    async notify(title, body, delayMs) {
+      var ln = plugin();
+      if (!ln) return false;
+      await ensureChannel();
+      await ln.schedule({
+        notifications: [{
+          id: 800000 + Math.floor(Math.random() * 99999),
+          title: String(title || 'Kifékoi'),
+          body: String(body || ''),
+          channelId: CHANNEL,
+          schedule: { at: new Date(Date.now() + (Number(delayMs) || 1500)) },
+        }],
+      });
+      return true;
+    },
+
     /* Test différé : on ferme l'app, la notification doit arriver. */
     async testIn(seconds) {
       var s = Math.max(5, Number(seconds) || 20);

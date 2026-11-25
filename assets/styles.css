@@ -1717,3 +1717,43 @@ iframe[id^="nl-badge"] {
 .search-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .search-main b { font-size: 13px; }
 .search-main .muted { font-size: 11.5px; }
+
+/* Vue semaine */
+.week-list { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.wk-day {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .95);
+  border: 1px solid transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.wk-day.today { box-shadow: inset 0 0 0 2px rgba(4, 146, 194, .45); }
+.wk-day.sel { background: #0B5F84; color: #fff; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .9); }
+.wk-date { display: flex; flex-direction: column; align-items: center; flex: 0 0 38px; }
+.wk-date b { font-size: 17px; line-height: 1.05; }
+.wk-date i { font-style: normal; font-size: 9.5px; text-transform: uppercase; color: var(--muted); }
+.wk-day.sel .wk-date i { color: rgba(255, 255, 255, .8); }
+.wk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wk-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.wk-today {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--brand); background: var(--brand-soft); padding: 1px 6px; border-radius: 999px;
+}
+.wk-day.sel .wk-today { background: rgba(255, 255, 255, .2); color: #fff; }
+.wk-custs { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.wk-cust { font-size: 11px; color: var(--muted); }
+.wk-cust b { color: var(--text); }
+.wk-day.sel .wk-cust { color: rgba(255, 255, 255, .85); }
+.wk-day.sel .wk-cust b { color: #fff; }
+.wk-ev { display: flex; gap: 6px; font-size: 11px; color: var(--text); }
+.wk-ev b { color: var(--brand); font-variant-numeric: tabular-nums; }
+.wk-day.sel .wk-ev { color: #eaf7ff; }
+.wk-day.sel .wk-ev b { color: #fff; }
+.wk-none { font-size: 10.5px; color: var(--muted); font-style: italic; }
+.wk-day.sel .wk-none { color: rgba(255, 255, 255, .75); }
+.week-head-title { text-transform: none; }

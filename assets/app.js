@@ -80,6 +80,7 @@ const ui = {
   installPrompt: null,
   custodyOpen: false,
   custodyChildId: null,
+  calView: 'month',
   bilanPeriod: 'rentree',
   bilanOffset: 0,
 };
@@ -400,18 +401,47 @@ function agendaHTML() {
       </button>`}
     </div>`;
 
+  const weekMode = ui.calView === 'week';
+  const weekStart = mondayOfISO(ui.selected);
+  const weekDays = Array.from({ length: 7 }, (_, i) => U.toDateISO(U.addDays(U.parseLocal(weekStart), i)));
+
+  const weekList = `
+    <div class="week-list">
+      ${weekDays.map((iso) => {
+        const d = U.parseLocal(iso);
+        const list = byDate[iso] || S.occurrencesBetween(iso, iso, ui.filter);
+        const cust = S.custodyDays(iso);
+        const nm = (id) => { const pr = id ? S.profile(id) : null; return pr ? pr.name : '—'; };
+        const custLine = cust.map(({ cfg, day }) => {
+          const same = day.am === day.pm && day.pm === day.sleep;
+          const txt = same
+            ? nm(day.am)
+            : `${nm(day.am)} → ${nm(day.pm)}${day.sleep !== day.pm ? ' · nuit ' + nm(day.sleep) : ''}`;
+          return `<span class="wk-cust" style="--c:${(S.profile(day.sleep) || {}).color || '#94a3b8'}"><b>${cfg.emoji}</b> ${U.esc(txt)}</span>`;
+        }).join('');
+        const evs = list.slice(0, 3).map((i) => `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}</span>`).join('');
+        return `<button type="button" class="wk-day ${iso === ui.selected ? 'sel' : ''} ${iso === todayISO ? 'today' : ''}" data-action="pick-day" data-date="${iso}">
+          <span class="wk-date"><b>${d.getDate()}</b><i>${U.fmtMonthShort(iso)}</i></span>
+          <span class="wk-body">
+            <span class="wk-head"><b>${['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'][(d.getDay() + 6) % 7]}</b>${iso === todayISO ? "<span class=\"wk-today\">Aujourd'hui</span>" : ''}</span>
+            ${custLine ? `<span class="wk-custs">${custLine}</span>` : ''}
+            ${evs || '<span class="wk-none">Aucun événement</span>'}
+          </span>
+        </button>`;
+      }).join('')}
+    </div>`;
+
   const grid = `
     <div class="calendar card">
       <div class="cal-head">
-        <button class="icon-btn" data-action="month-prev" aria-label="Mois précédent">‹</button>
+        <button class="icon-btn" data-action="${weekMode ? 'week-prev' : 'month-prev'}" aria-label="Précédent">‹</button>
         <div class="cal-title">
-          <h2>${U.fmtMonth(ui.month)}</h2>
-          ${(y !== now.getFullYear() || m !== now.getMonth())
-            ? `<button class="link xs" data-action="go-today">Revenir à ce mois</button>`
-            : ''}
+          <h2 ${weekMode ? 'class="week-head-title"' : ''}>${weekMode ? `Semaine du ${U.fmtDateY(U.parseLocal(weekStart))}` : U.fmtMonth(ui.month)}</h2>
+          <button class="link xs" data-action="cal-view" data-id="${weekMode ? 'month' : 'week'}">${weekMode ? 'Vue mois' : 'Vue semaine'}</button>
         </div>
-        <button class="icon-btn" data-action="month-next" aria-label="Mois suivant">›</button>
+        <button class="icon-btn" data-action="${weekMode ? 'week-next' : 'month-next'}" aria-label="Suivant">›</button>
       </div>
+      ${weekMode ? weekList : `
       <div class="cal-grid cal-weekdays">
         ${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d) => `<span>${d}</span>`).join('')}
       </div>
@@ -444,7 +474,7 @@ function agendaHTML() {
           </button>`;
         }).join('')}
       </div>
-      <p class="cal-legend"><i></i> Vacances scolaires · zone ${schoolZone()}</p>
+      <p class="cal-legend"><i></i> Vacances scolaires · zone ${schoolZone()}</p>`}
     </div>`;
 
   const dayBlock = `
@@ -804,7 +834,13 @@ function setupCalendarSwipe() {
     calSwipe = null;
     if (dt > 900 || Math.abs(dx) < 55) return;
     if (Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    ui.month = new Date(ui.month.getFullYear(), ui.month.getMonth() + (dx < 0 ? 1 : -1), 1);
+    if (ui.calView === 'week') {
+      const d = U.addDays(U.parseLocal(ui.selected), dx < 0 ? 7 : -7);
+      ui.selected = U.toDateISO(d);
+      ui.month = new Date(d.getFullYear(), d.getMonth(), 1);
+    } else {
+      ui.month = new Date(ui.month.getFullYear(), ui.month.getMonth() + (dx < 0 ? 1 : -1), 1);
+    }
     render(true);
   }, { passive: true });
 }
@@ -1754,52 +1790,6 @@ function addMonthsISO(dateISO, months) {
   return U.toDateISO(target);
 }
 
-function exportExpensesCSV() {
-  const range = bilanRange();
-  const list = S.expenses().filter((e) => !e.settle && e.date >= range.from && e.date <= range.to);
-  if (!list.length) {
-    toast('Aucune dépense sur cette période');
-    return;
-  }
-
-  const cleanCat = (k) => (EXPENSE_CATS[k] || EXPENSE_CATS.autres).replace(/^[^\s]+\s+/, '');
-  const rows = [['Date', 'Libellé', 'Catégorie', 'Montant (€)', 'Payé par', 'Partage', 'Note']];
-
-  for (const e of list) {
-    const payer = (S.profile(e.paidBy) || {}).name || '';
-    let share = '50/50';
-    if (e.split && typeof e.split === 'object') {
-      share = Object.entries(e.split)
-        .map(([id, pct]) => `${(S.profile(id) || {}).name || '?'} ${pct} %`)
-        .join(' / ');
-    }
-    rows.push([
-      e.date,
-      e.label || '',
-      cleanCat(e.category),
-      (Number(e.amount) / 100).toFixed(2).replace('.', ','),
-      payer,
-      share,
-      e.note || '',
-    ]);
-  }
-
-  const csv = '\uFEFF' + rows
-    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
-    .join('\r\n');
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `kifekoi-depenses-${range.from}-${range.to}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  toast('Export CSV téléchargé ✓', 3000);
-}
-
 function bilanHTML() {
   const parents = S.profiles().filter((p) => p.role === 'parent');
   const range = bilanRange();
@@ -1890,7 +1880,6 @@ function bilanHTML() {
           <button class="btn primary grow" data-action="add-expense">＋ Ajouter une dépense</button>
           ${debt ? `<button class="btn ghost" data-action="settle-expense">Remboursé</button>` : ''}
         </div>
-        <button class="btn ghost wide" data-action="export-expenses">⬇ Exporter en CSV</button>
       </div>
       ${expenseRows ? `<div class="exp-list">${expenseRows}</div>` : '<p class="hint">Aucune dépense sur cette période.</p>'}
     </section>`;
@@ -2801,6 +2790,34 @@ async function importJSON(file) {
 /* Interactions                                                        */
 /* ------------------------------------------------------------------ */
 
+/* Rappel des demandes restées sans réponse plus de 24 h (une fois par demande). */
+function checkPendingReminders() {
+  const me = myDevice().id;
+  const now = Date.now();
+
+  for (const rec of S.pendingRequests()) {
+    const p = rec.payload;
+    const age = now - (p.createdAt || 0);
+    if (age < 24 * 3600 * 1000) continue;
+
+    const key = 'af.reminded.' + rec.id;
+    try {
+      if (localStorage.getItem(key)) continue;
+      localStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+
+    const mine = p.authorId === me;
+    const title = mine ? 'Demande toujours sans réponse' : 'Demande en attente de votre réponse';
+    const body = String(p.summary || 'Demande').slice(0, 120);
+
+    if (isNative && Native && typeof Native.notify === 'function') {
+      try { Native.notify(title, body, 1500).catch(() => {}); } catch { /* ignore */ }
+    } else {
+      toast(`${title} — ${body}`, 6000);
+    }
+  }
+}
+
 function onAction(e) {
   const el = e.target.closest('[data-action]');
   if (!el) return;
@@ -3076,7 +3093,20 @@ function onAction(e) {
       ui.bilanPeriod = el.dataset.id || 'rentree';
       ui.bilanOffset = 0;
       render(true);
-      break;    case 'bilan-prev':
+      break;
+    case 'cal-view':
+      ui.calView = el.dataset.id === 'week' ? 'week' : 'month';
+      render(true);
+      break;
+    case 'week-prev':
+    case 'week-next': {
+      const step = action === 'week-next' ? 7 : -7;
+      const d = U.addDays(U.parseLocal(ui.selected), step);
+      ui.selected = U.toDateISO(d);
+      ui.month = new Date(d.getFullYear(), d.getMonth(), 1);
+      render(true);
+      break;
+    }    case 'bilan-prev':
       ui.bilanOffset -= 1;
       render(true);
       break;
@@ -3143,9 +3173,6 @@ function onAction(e) {
       closeSheet();
       toast('Dépense supprimée');
       render(true);
-      break;
-    case 'export-expenses':
-      exportExpensesCSV();
       break;
     case 'settle-expense': {
       const parents = S.profiles().filter((x) => x.role === 'parent');
@@ -3344,6 +3371,8 @@ function boot() {
 
   checkReminders();
   setInterval(checkReminders, 60000);
+  setTimeout(checkPendingReminders, 3000);
+  setInterval(checkPendingReminders, 30 * 60 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       checkReminders();
