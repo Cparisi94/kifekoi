@@ -1289,3 +1289,19 @@ iframe[id^="nl-badge"] {
 .help-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
 .help-list li::marker { color: var(--brand); }
 .help-list b { color: var(--text); }
+
+/* ------------------------ Diagnostic natif ------------------------ */
+
+.diag-box { display: flex; flex-direction: column; }
+.diag-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.diag-line span { color: var(--muted); }
+.diag-line b { font-weight: 700; text-align: right; word-break: break-all; }
+.diag-line b.bad { color: #d63b55; }

@@ -19,6 +19,8 @@ export const state = {
   subscribed: false,
   endpoint: '',
   nativeToken: '',
+  nativeRegistered: false,
+  nativeError: '',
   busy: false,
   message: '',
 };
@@ -221,10 +223,16 @@ export async function initNativePush() {
       await PN.addListener('registration', (t) => {
         if (t && t.value) {
           state.nativeToken = t.value;
+          state.nativeRegistered = true;
+          state.nativeError = '';
           saveNativeToken(t.value);
         }
       });
-      await PN.addListener('registrationError', (err) => console.warn('FCM erreur', err));
+      await PN.addListener('registrationError', (err) => {
+        state.nativeRegistered = false;
+        state.nativeError = String((err && (err.error || err.message)) || err || 'inconnue');
+        console.warn('FCM erreur', err);
+      });
       await PN.addListener('pushNotificationReceived', () => {
         try { Sync.syncNow('push'); } catch { /* ignore */ }
       });
@@ -247,6 +255,58 @@ export async function initNativePush() {
 export async function syncNativeToken() {
   if (!state.nativeToken || !Sync.isSignedIn()) return false;
   return saveNativeToken(state.nativeToken);
+}
+
+/* Relance l'enregistrement Firebase (bouton « Réessayer »). */
+export async function retryNative() {
+  const PN = nativePush();
+  if (!PN) return false;
+  try {
+    await PN.register();
+    return true;
+  } catch (err) {
+    state.nativeError = String((err && (err.message || err.error)) || err);
+    return false;
+  }
+}
+
+/* Diagnostic lisible pour le support. */
+export async function nativeDiag() {
+  const PN = nativePush();
+  const Cap = typeof window !== 'undefined' ? window.Capacitor : null;
+
+  const out = {
+    isNative: Boolean(Cap && (typeof Cap.isNativePlatform === 'function' ? Cap.isNativePlatform() : Cap.isNative)),
+    hasPlugin: Boolean(PN),
+    permission: null,
+    registered: state.nativeRegistered,
+    token: state.nativeToken ? state.nativeToken.slice(0, 14) + '…' : '',
+    error: state.nativeError || '',
+    signedIn: Sync.isSignedIn(),
+    email: Sync.status.email || '',
+    tokensForUser: null,
+  };
+
+  if (PN) {
+    try {
+      const p = await PN.checkPermissions();
+      out.permission = p && p.receive;
+    } catch (err) {
+      out.permission = 'erreur: ' + String(err && (err.message || err));
+    }
+  }
+
+  if (out.signedIn) {
+    try {
+      const r = await fetch(`${BASE}/rest/v1/device_tokens?select=token`, { headers: await authHeaders() });
+      const arr = r.ok ? await r.json() : [];
+      out.tokensForUser = Array.isArray(arr) ? arr.length : null;
+    } catch (err) {
+      out.tokensForUser = null;
+    }
+  }
+
+  return out;
 }
 
 export function statusLabel() {

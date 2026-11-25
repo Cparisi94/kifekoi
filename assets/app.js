@@ -844,6 +844,38 @@ function renderTutorial() {
 
 /* ------------------------------ Aide ------------------------------ */
 
+async function nativeDiagSheet() {
+  const d = await Push.nativeDiag();
+  const line = (k, v, bad) =>
+    `<div class="diag-line"><span>${k}</span><b class="${bad ? 'bad' : ''}">${U.esc(String(v))}</b></div>`;
+
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>🔎 Diagnostic</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div class="diag-box">
+          ${line('Application Android', d.isNative ? 'oui' : 'NON', !d.isNative)}
+          ${line('Module push', d.hasPlugin ? 'présent' : 'ABSENT', !d.hasPlugin)}
+          ${line('Autorisation Android', d.permission || '—', d.permission !== 'granted')}
+          ${line('Enregistré (jeton)', d.registered ? 'oui' : 'non', !d.registered)}
+          ${line('Jeton', d.token || '—', !d.token)}
+          ${line('Compte', d.signedIn ? d.email : 'non connecté', !d.signedIn)}
+          ${line('Jetons en base', d.tokensForUser == null ? '—' : d.tokensForUser, d.tokensForUser === 0)}
+          ${line('Erreur', d.error || 'aucune', Boolean(d.error))}
+        </div>
+        <button type="button" class="btn primary wide" data-action="native-retry">Réessayer l'enregistrement</button>
+        <p class="hint">Après « Réessayer », attends 3 secondes puis rouvre le diagnostic.</p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost grow" data-close>Fermer</button>
+      </div>
+    </div>
+  `);
+}
+
 function helpSheet() {
   openSheet(`
     <div class="sheet-form help-sheet">
@@ -1689,6 +1721,7 @@ function settingsHTML() {
         ${ns === 'granted' || ns === 'native' ? `<button class="btn ghost grow" data-action="test-notif">Tester</button>` : ''}
         <button class="btn ghost grow" data-action="export-ics">Calendrier (.ics)</button>
       </div>
+      ${isNative ? '<button class="btn ghost wide" data-action="native-diag">🔎 Diagnostic des notifications</button>' : ''}
     </div>
 
     ${pushBlock}
@@ -2227,6 +2260,15 @@ function onAction(e) {
     }
     case 'help':
       helpSheet();
+      break;
+    case 'native-diag':
+      nativeDiagSheet();
+      break;
+    case 'native-retry':
+      Push.retryNative().then((ok) => {
+        toast(ok ? 'Nouvel essai lancé…' : 'Échec de l’enregistrement', 3500);
+        setTimeout(() => nativeDiagSheet(), 2500);
+      });
       break;
     case 'tuto-replay':
       if ($('#sheet')) closeSheet();
