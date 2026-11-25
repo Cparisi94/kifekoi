@@ -1776,3 +1776,5 @@ iframe[id^="nl-badge"] {
 }
 .wk-day.sel .wk-part { background: rgba(255, 255, 255, .92); border-color: transparent; color: #0d2733; }
 .wk-part { font-size: 11px; padding: 2px 7px; }
+.wk-who { color: var(--muted); font-size: 10.5px; margin-left: 2px; }
+.wk-day.sel .wk-who { color: rgba(255, 255, 255, .85); }

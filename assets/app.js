@@ -424,7 +424,10 @@ function agendaHTML() {
             : `${part(day.am, '☀️', 'Matin')}${part(day.pm, '🌤', 'Après-midi')}${part(day.sleep, '🛏️', 'Nuit')}`;
           return `<span class="wk-cust"><b>${cfg.emoji}</b>${body}</span>`;
         }).join('');
-        const evs = list.slice(0, 3).map((i) => `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}</span>`).join('');
+        const evs = list.slice(0, 3).map((i) => {
+          const pr = S.profile(i.payload.profileId);
+          return `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}${pr ? ` <span class="wk-who">${pr.emoji || ''} ${U.esc(pr.name)}</span>` : ''}</span>`;
+        }).join('');
         return `<button type="button" class="wk-day ${iso === ui.selected ? 'sel' : ''} ${iso === todayISO ? 'today' : ''}" data-action="pick-day" data-date="${iso}">
           <span class="wk-date"><b>${d.getDate()}</b><i>${U.fmtMonthShort(iso)}</i></span>
           <span class="wk-body">
