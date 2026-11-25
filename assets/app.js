@@ -3,6 +3,7 @@
 import * as S from './store.js';
 import * as Sync from './sync.js';
 import * as Push from './push.js';
+import * as HOL from './holidays.js';
 import { TUTORIAL, HELP_SECTIONS } from './help.js';
 import * as SCH from './school.js';
 import { downloadICS, googleUrl } from './ics.js';
@@ -33,6 +34,16 @@ const CATS = {
 };
 
 const REM_CHOICES = [10080, 1440, 240, 120, 0];
+
+/* Modèles d'événements (remplissage rapide du formulaire). */
+const EVENT_TEMPLATES = [
+  { label: '💉 Vaccin', title: 'Vaccin', category: 'vaccin', reminders: [10080, 1440] },
+  { label: '🍽️ Cantine', title: 'Cantine', category: 'ecole', reminders: [0] },
+  { label: '🗣️ Orthophoniste', title: 'Orthophoniste', category: 'sante', reminders: [1440, 120] },
+  { label: '🦷 Dentiste', title: 'Dentiste', category: 'sante', reminders: [1440, 120] },
+  { label: '🎒 École', title: 'Réunion école', category: 'ecole', reminders: [1440] },
+  { label: '⚽ Activité', title: 'Activité', category: 'sortie', reminders: [60] },
+];
 
 const UNIT_OPTIONS = [
   ['day', 'jour(s)'],
@@ -381,6 +392,7 @@ function agendaHTML() {
           <span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}
         </button>`).join('')}
       </div>
+      <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
       ${showHero ? '' : `<button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
           <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
@@ -422,7 +434,8 @@ function agendaHTML() {
             return `<span class="custody-bar">${kid}<i class="custody-seg" style="--c:${am ? am.color : 'transparent'}"></i><i class="custody-seg" style="--c:${pm ? pm.color : 'transparent'}"></i><b class="custody-sleep" style="--c:${sl ? sl.color : 'var(--muted)'}">${letter}</b></span>`;
           }).join('');
           const holiday = SCH.schoolHoliday(iso, schoolZone());
-          return `<button class="cal-day ${d.getMonth() !== m ? 'out' : ''} ${iso === todayISO ? 'today' : ''} ${holiday ? 'is-holiday' : ''} ${iso === ui.selected ? 'sel' : ''} ${list.length ? 'has-events' : ''}"
+          const ferie = HOL.holidayOn(iso);
+          return `<button class="cal-day ${d.getMonth() !== m ? 'out' : ''} ${iso === todayISO ? 'today' : ''} ${holiday ? 'is-holiday' : ''} ${ferie ? 'is-ferie' : ''} ${iso === ui.selected ? 'sel' : ''} ${list.length ? 'has-events' : ''}"
                     data-action="pick-day" data-date="${iso}">
             ${custodyList.length ? `<span class="custody-bars ${multiBars ? 'multi' : ''}">${bars}</span>` : ''}
             <span class="cal-spacer"></span>
@@ -444,6 +457,7 @@ function agendaHTML() {
         </div>
       </div>
       ${(() => { const h = SCH.schoolHoliday(ui.selected, schoolZone()); return h ? `<div class="holiday-tag">🏖️ ${U.esc(h.label)} · zone ${schoolZone()}</div>` : ''; })()}
+      ${(() => { const f = HOL.holidayOn(ui.selected); return f ? `<div class="holiday-tag ferie">🎉 ${U.esc(f.label)}</div>` : ''; })()}
       ${custodyRowHTML()}
       ${dayAll.length
         ? dayAll.map((i) => eventCard(i)).join('')
@@ -937,6 +951,100 @@ async function nativeDiagSheet() {
   `);
 }
 
+/* ---------------------------- Recherche ---------------------------- */
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function searchResultsHTML(query) {
+  const needle = normalizeText(query).trim();
+  if (needle.length < 2) {
+    return '<p class="hint">Tapez au moins 2 lettres (titre, note, personne, montant…).</p>';
+  }
+
+  const match = (...values) => values.some((v) => normalizeText(v).includes(needle));
+  const rows = [];
+
+  for (const rec of S.events()) {
+    const p = rec.payload;
+    const prof = S.profile(p.profileId);
+    if (!match(p.title, p.notes, (CATS[p.category] || CATS.autre).label, prof && prof.name)) continue;
+    rows.push({
+      action: 'open-event',
+      id: rec.id,
+      date: p.date,
+      icon: (CATS[p.category] || CATS.autre).icon,
+      title: p.title || 'Événement',
+      meta: `${prof ? prof.name + ' · ' : ''}${U.fmtDateY(U.parseLocal(p.date))}${p.allDay ? '' : ' · ' + p.time}`,
+    });
+  }
+
+  for (const rec of S.notes()) {
+    const p = rec.payload;
+    const prof = S.profile(p.profileId);
+    if (!match(p.title, p.text, prof && prof.name)) continue;
+    rows.push({
+      action: 'open-note',
+      id: rec.id,
+      icon: p.pinned ? '📌' : '📝',
+      title: p.title || 'Note',
+      meta: prof ? prof.name : '',
+    });
+  }
+
+  for (const x of S.expenses()) {
+    if (!match(x.label, x.note, EXPENSE_CATS[x.category], (S.profile(x.paidBy) || {}).name)) continue;
+    rows.push({
+      action: 'edit-expense',
+      id: x.id,
+      icon: '🧾',
+      title: x.label || 'Dépense',
+      meta: `${euro(x.amount)} · ${U.fmtDateY(U.parseLocal(x.date))}`,
+    });
+  }
+
+  if (!rows.length) return '<p class="hint">Aucun résultat.</p>';
+
+  return rows.slice(0, 40).map((r) => `
+    <button type="button" class="search-row" data-action="${r.action}" data-id="${r.id}" ${r.date ? `data-date="${r.date}"` : ''}>
+      <span class="search-icon">${r.icon || '•'}</span>
+      <span class="search-main"><b>${U.esc(r.title)}</b><span class="muted">${U.esc(r.meta)}</span></span>
+    </button>`).join('');
+}
+
+function searchSheet() {
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>🔍 Rechercher</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Événements, notes, dépenses</span>
+          <input id="searchInput" type="search" placeholder="Ex. piscine, vaccin, cantine…" autocomplete="off">
+        </label>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost grow" data-close>Fermer</button>
+      </div>
+    </div>
+  `);
+
+  const input = $('#searchInput');
+  const box = $('#searchResults');
+  if (input && box) {
+    const run = () => { box.innerHTML = searchResultsHTML(input.value); };
+    input.addEventListener('input', run);
+    run();
+    setTimeout(() => input.focus(), 150);
+  }
+}
+
 function helpSheet() {
   openSheet(`
     <div class="sheet-form help-sheet">
@@ -1028,6 +1136,13 @@ function eventSheet(id, opts = {}) {
             ${profs.map((pr) => `<button type="button" class="chip ${sheetDraft.profileId === pr.id ? 'on' : ''}" data-person="${pr.id}" style="--c:${pr.color}">${pr.emoji} ${U.esc(pr.name)}</button>`).join('')}
           </div>
         </div>
+
+        ${!rec ? `<div class="field">
+          <span>Modèles (facultatif)</span>
+          <div class="chips scroll" id="tplChips">
+            ${EVENT_TEMPLATES.map((t, i) => `<button type="button" class="chip" data-tpl="${i}">${t.label}</button>`).join('')}
+          </div>
+        </div>` : ''}
 
         <label class="field">
           <span>Titre</span>
@@ -1123,6 +1238,22 @@ function eventSheet(id, opts = {}) {
   `);
 
   const form = $('#eventForm');
+
+  const tplChips = $('#tplChips');
+  if (tplChips) {
+    tplChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-tpl]');
+      if (!btn) return;
+      const tpl = EVENT_TEMPLATES[Number(btn.dataset.tpl)];
+      if (!tpl) return;
+      form.querySelector('[name="title"]').value = tpl.title;
+      form.querySelector('[name="category"]').value = tpl.category;
+      refreshImpact();
+      sheetDraft.reminders = new Set(tpl.reminders);
+      $$('#remChips .chip').forEach((c) => c.classList.toggle('on', sheetDraft.reminders.has(Number(c.dataset.rem))));
+      toast(`Modèle « ${tpl.title} » appliqué`, 1800);
+    });
+  }
 
   $('#personChips').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-person]');
@@ -2975,6 +3106,9 @@ function onAction(e) {
       render(true);
       break;
     }
+    case 'search':
+      searchSheet();
+      break;
     case 'native-diag':
       nativeDiagSheet();
       break;

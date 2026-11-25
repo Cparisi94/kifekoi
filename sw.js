@@ -1,6 +1,6 @@
 /* Kifékoi — service worker (hors ligne + notifications) */
 
-const VERSION = 'af-v3.4.22';
+const VERSION = 'af-v3.4.23';
 const CACHE = `kifekoi-${VERSION}`;
 
 const ASSETS = [
@@ -17,6 +17,7 @@ const ASSETS = [
   './assets/ics.js',
   './assets/util.js',
   './assets/school.js',
+  './assets/holidays.js',
   './assets/native.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
