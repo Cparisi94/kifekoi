@@ -1785,3 +1785,12 @@ iframe[id^="nl-badge"] {
 .filter-chips .chip { padding: 5px 9px; font-size: 11.5px; gap: 5px; }
 .filter-chips .chip-avatar { width: 20px; height: 20px; font-size: 12px; }
 .filter-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+
+/* Parent accompagnateur */
+.event-accomp { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.event-accomp b { color: var(--text); font-weight: 700; }
+.calendar .cal-day .dots i.dot-accomp {
+  background: var(--a, var(--c, #94a3b8));
+  box-shadow: 0 0 0 1.5px var(--c, #94a3b8);
+}
+.calendar .cal-day.sel .dots i.dot-accomp { background: var(--a, var(--c, #94a3b8)); }

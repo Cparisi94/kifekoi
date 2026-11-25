@@ -245,6 +245,7 @@ function eventCard(item, opts = {}) {
         ${profilePill(prof)}
         <span class="muted">${cat.label}${p.repeat ? ' · 🔁 ' + repeatShort(p.repeat) : ''}</span>
       </p>
+      ${p.accompanist ? `<p class="event-accomp">🧑‍🤝‍🧑 Accompagné par <b>${U.esc((S.profile(p.accompanist) || {}).name || '—')}</b></p>` : ''}
       <p class="event-rem ${p.reminders && p.reminders.length ? '' : 'muted'}">
         ${item.range
           ? `🏖️ Du ${U.fmtDateY(p.date)} au ${U.fmtDateY(p.endDate)} · jour ${item.range.index}/${item.range.total}`
@@ -367,7 +368,7 @@ function agendaHTML() {
         <div class="hero-text">
           <span class="hero-name">Kifékoi</span>
           <p class="hero-summary"><b>${count} événement${count > 1 ? 's' : ''}</b>${nextSoon
-            ? ` · ${nextProf ? U.esc(nextProf.name) + ' ' : ''}${CATS[nextSoon.payload.category]?.icon || '📌'} ${U.esc(nextSoon.payload.title)}${nextSoon.payload.allDay ? '' : '\u00A0' + U.fmtTime(S.occurrenceStart(nextSoon))}`
+            ? ` · ${nextProf ? U.esc(nextProf.name) + ' ' : ''}${CATS[nextSoon.payload.category]?.icon || '📌'} ${U.esc(nextSoon.payload.title)}${nextSoon.payload.allDay ? '' : '\u00A0' + U.fmtTime(S.occurrenceStart(nextSoon))}${nextSoon.payload.accompanist ? ` · avec ${U.esc((S.profile(nextSoon.payload.accompanist) || {}).name || '')}` : ''}`
             : ''}</p>
         </div>
         <button class="add-btn hero-add" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
@@ -428,7 +429,7 @@ function agendaHTML() {
         }).join('');
         const evs = list.slice(0, 3).map((i) => {
           const pr = S.profile(i.payload.profileId);
-          return `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}${pr ? ` <span class="wk-who">${pr.emoji || ''} ${U.esc(pr.name)}</span>` : ''}</span>`;
+          return `<span class="wk-ev"><b>${U.esc(i.payload.allDay ? 'Jour' : i.payload.time)}</b> ${U.esc(i.payload.title)}${pr ? ` <span class="wk-who">${pr.emoji || ''} ${U.esc(pr.name)}</span>` : ''}${i.payload.accompanist ? ` <span class="wk-who">avec ${U.esc((S.profile(i.payload.accompanist) || {}).name || '')}</span>` : ''}</span>`;
         }).join('');
         return `<button type="button" class="wk-day ${iso === ui.selected ? 'sel' : ''} ${iso === todayISO ? 'today' : ''}" data-action="pick-day" data-date="${iso}">
           <span class="wk-date"><b>${d.getDate()}</b><i>${U.fmtMonthShort(iso)}</i></span>
@@ -459,7 +460,11 @@ function agendaHTML() {
         ${weeks.flat().map((d) => {
           const iso = U.toDateISO(d);
           const list = byDate[iso] || [];
-          const dots = list.slice(0, 3).map((i) => `<i style="--c:${(S.profile(i.payload.profileId) || {}).color || '#94a3b8'}"></i>`).join('');
+          const dots = list.slice(0, 3).map((i) => {
+            const pr = S.profile(i.payload.profileId);
+            const acc = i.payload.accompanist ? S.profile(i.payload.accompanist) : null;
+            return `<i class="${acc ? 'dot-accomp' : ''}" style="--c:${(pr || {}).color || '#94a3b8'};${acc ? `--a:${acc.color}` : ''}"></i>`;
+          }).join('');
           const cdays = custodyList.map((cfg) => ({ cfg, day: S.custodyDayFor(cfg, iso) }));
           const sig = (d) => [d.am, d.pm, d.sleep].join('|');
           const sameAll = cdays.length > 1 && cdays.every((c) => sig(c.day) === sig(cdays[0].day));
@@ -518,7 +523,7 @@ function agendaHTML() {
                <b>${(CATS[i.payload.category] || CATS.autre).icon} ${U.esc(i.payload.title)}</b>
                <span class="row-meta">
                  ${profilePill(prof)}
-                 <span class="muted">${U.relLabel(i.date)}${i.payload.allDay ? '' : ' · ' + i.payload.time}${i.payload.repeat ? ' · 🔁' : ''}</span>
+                 <span class="muted">${U.relLabel(i.date)}${i.payload.allDay ? '' : ' · ' + i.payload.time}${i.payload.repeat ? ' · 🔁' : ''}${i.payload.accompanist ? ' · avec ' + U.esc((S.profile(i.payload.accompanist) || {}).name || '') : ''}</span>
                </span>
              </span>
              <span class="row-dot" style="--c:${(prof || {}).color || '#94a3b8'}"></span>
@@ -768,7 +773,7 @@ function remCard(r) {
   return `<button class="card rem ${past ? 'past' : ''}" data-action="open-event" data-id="${r.item.rec.id}" data-date="${r.item.date}">
     <span class="rem-when">${past ? '⏰ ' : ''}${U.relLabel(when)} · ${U.fmtTime(when)}</span>
     <span class="rem-title">${cat.icon} ${U.esc(p.title)}</span>
-    <span class="rem-sub">${prof ? U.esc(prof.name) + ' · ' : ''}${U.minutesLabel(r.offset)} — RDV ${U.fmtDateY(start)}${p.allDay ? '' : ' ' + U.fmtTime(start)}</span>
+    <span class="rem-sub">${prof ? U.esc(prof.name) + ' · ' : ''}${U.minutesLabel(r.offset)} — RDV ${U.fmtDateY(start)}${p.allDay ? '' : ' ' + U.fmtTime(start)}${p.accompanist ? ' · avec ' + U.esc((S.profile(p.accompanist) || {}).name || '') : ''}</span>
   </button>`;
 }
 
@@ -1157,7 +1162,12 @@ function eventSheet(id, opts = {}) {
     profileId: p.profileId,
     reminders: new Set(p.reminders || []),
     occurrenceDate: opts.date || null,
+    accompanist: p.accompanist || '',
   };
+
+  const selProf = S.profile(p.profileId);
+  const showAccomp = Boolean(selProf && selProf.role !== 'parent');
+  const parentProfs = profs.filter((x) => x.role === 'parent');
 
   const cats = Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${p.category === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('');
   const currentUnit = (p.repeat && p.repeat.unit) || 'month';
@@ -1189,6 +1199,14 @@ function eventSheet(id, opts = {}) {
             ${EVENT_TEMPLATES.map((t, i) => `<button type="button" class="chip" data-tpl="${i}">${t.label}</button>`).join('')}
           </div>
         </div>` : ''}
+
+        <div class="field" id="accompField" ${showAccomp ? '' : 'hidden'}>
+          <span>Parent accompagnateur (facultatif)</span>
+          <div class="chips" id="accompChips">
+            <button type="button" class="chip ${sheetDraft.accompanist ? '' : 'on'}" data-accomp="">Aucun</button>
+            ${parentProfs.map((pr) => `<button type="button" class="chip ${sheetDraft.accompanist === pr.id ? 'on' : ''}" data-accomp="${pr.id}" style="--c:${pr.color}"><span class="chip-avatar">${pr.emoji}</span>${U.esc(pr.name)}</button>`).join('')}
+          </div>
+        </div>
 
         <label class="field">
           <span>Titre</span>
@@ -1306,7 +1324,20 @@ function eventSheet(id, opts = {}) {
     if (!btn) return;
     sheetDraft.profileId = btn.dataset.person;
     $$('#personChips .chip').forEach((c) => c.classList.toggle('on', c === btn));
+    const pr = S.profile(sheetDraft.profileId);
+    const field = $('#accompField');
+    if (field) field.hidden = !pr || pr.role === 'parent';
   });
+
+  const accompChips = $('#accompChips');
+  if (accompChips) {
+    accompChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-accomp]');
+      if (!btn) return;
+      sheetDraft.accompanist = btn.dataset.accomp || '';
+      $$('#accompChips .chip').forEach((c) => c.classList.toggle('on', c === btn));
+    });
+  }
 
   $('#remChips').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-rem]');
@@ -1422,6 +1453,7 @@ function eventSheet(id, opts = {}) {
       endDate: multiDay ? endDate : null,
       category,
       affectsCustody,
+      accompanist: sheetDraft.accompanist || null,
       notes: String(fd.get('notes') || '').trim(),
       reminders: [...sheetDraft.reminders].sort((a, b) => b - a),
       repeat: multiDay ? null : (wantsRepeat ? { every, unit, until, count } : null),
