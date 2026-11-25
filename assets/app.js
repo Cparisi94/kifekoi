@@ -1708,11 +1708,34 @@ function bilanHTML() {
       ${expenseRows ? `<div class="exp-list">${expenseRows}</div>` : '<p class="hint">Aucune dépense sur cette période.</p>'}
     </section>`;
 
+  const requestsBlock = (() => {
+    const all = S.requests().filter((r) => r.payload && r.payload.status && r.payload.status !== 'pending');
+    const rows = all.slice(0, 10).map((r) => {
+      const p = r.payload;
+      const ok = p.status === 'accepted';
+      const d = new Date(p.createdAt || Date.now());
+      return `<div class="req-row">
+        <span class="req-badge ${ok ? 'ok' : 'no'}">${ok ? 'Acceptée' : 'Refusée'}</span>
+        <span class="req-main">
+          <b>${U.esc(p.summary || 'Demande')}</b>
+          <span class="muted">${U.esc(p.author || '—')} · ${U.fmtDateY(d)}${p.resolvedBy ? ' · réponse de ' + U.esc(p.resolvedBy) : ''}</span>
+          ${p.comment ? `<span class="req-comment">« ${U.esc(p.comment)} »</span>` : ''}
+        </span>
+      </div>`;
+    }).join('');
+
+    return `<section class="block">
+      <div class="block-head"><h2>Demandes</h2><span class="count">${all.length}</span></div>
+      ${all.length ? rows : '<p class="hint">Aucune demande traitée pour le moment.</p>'}
+    </section>`;
+  })();
+
   return `<div class="stack">
     <h1 class="page-title">Bilan</h1>
     ${periodBar}
     ${custodyBlock}
     ${expenseBlock}
+    ${requestsBlock}
   </div>`;
 }
 
@@ -1730,8 +1753,12 @@ function expenseSheet(id) {
   const cat = p ? p.category || 'autres' : 'autres';
   let splitValue = 'half';
   if (p && p.split && typeof p.split === 'object') {
-    splitValue = String(Number(p.split[parents[0].id]) || 0);
+    const first = Number(p.split[parents[0].id]) || 0;
+    splitValue = [0, 40, 50, 60, 100].includes(first) ? String(first) : 'custom';
   }
+  const defaultPct = p && p.split && typeof p.split === 'object'
+    ? Math.max(0, Math.min(100, Number(p.split[parents[0].id]) || 0))
+    : 50;
 
   const opt = (v, label, cur) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${label}</option>`;
 
@@ -1766,8 +1793,15 @@ function expenseSheet(id) {
             ${opt('40', `40 % ${U.esc(parents[0].name)} / 60 % ${U.esc(parents[1].name)}`, splitValue)}
             ${opt('100', `100 % ${U.esc(parents[0].name)}`, splitValue)}
             ${opt('0', `100 % ${U.esc(parents[1].name)}`, splitValue)}
+            ${opt('custom', 'Répartition libre…', splitValue)}
           </select>
         </label>
+        <div id="expCustomRow" class="stack" ${splitValue === 'custom' ? '' : 'hidden'}>
+          <label class="field"><span>Part de ${U.esc(parents[0].name)} (%)</span>
+            <input id="expPctA" type="number" min="0" max="100" step="5" value="${defaultPct}">
+          </label>
+          <p class="hint" id="expPctHint">${100 - defaultPct} % pour ${U.esc(parents[1].name)}</p>
+        </div>
         <label class="field"><span>Note (facultatif)</span>
           <input id="expNote" maxlength="120" value="${p ? U.esc(p.note || '') : ''}">
         </label>
@@ -1778,6 +1812,24 @@ function expenseSheet(id) {
       </div>
     </div>
   `);
+
+  const splitSelect = $('#expSplit');
+  const customRow = $('#expCustomRow');
+  const pctInput = $('#expPctA');
+  const pctHint = $('#expPctHint');
+
+  const syncCustom = () => {
+    if (!splitSelect || !customRow) return;
+    const custom = splitSelect.value === 'custom';
+    customRow.hidden = !custom;
+    if (custom && pctInput && pctHint) {
+      const v = Math.max(0, Math.min(100, Math.round(Number(pctInput.value) || 0)));
+      pctHint.textContent = `${100 - v} % pour ${parents[1].name}`;
+    }
+  };
+  if (splitSelect) splitSelect.addEventListener('change', syncCustom);
+  if (pctInput) pctInput.addEventListener('input', syncCustom);
+  syncCustom();
 }
 
 /* ---------------------------- Demandes ---------------------------- */
@@ -1901,6 +1953,34 @@ function nextCustodySwitch(raw) {
   return null;
 }
 
+function weekTable(which, days) {
+  const dayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const dayNames = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  const rows = [['am', 'Matin'], ['pm', 'A-midi'], ['sleep', 'Nuit']];
+
+  return `<p class="week-title">Semaine ${which}</p>
+    <div class="week-table">
+      <div class="week-row week-row-head">
+        <span class="week-lab"></span>
+        ${dayLabels.map((d) => `<span class="week-daylab">${d}</span>`).join('')}
+      </div>
+      ${rows.map(([part, label]) => `
+        <div class="week-row">
+          <span class="week-lab">${label}</span>
+          ${days.map((entry, i) => {
+            const pr = S.profile(entry[part]) || {};
+            return `<button type="button" class="week-cell" data-action="custody-week-part" data-id="${which}" data-day="${i}" data-part="${part}" style="--c:${pr.color || '#94a3b8'}" aria-label="Semaine ${which}, ${dayNames[i]}, ${label} : ${U.esc(pr.name || '—')}">${pr.emoji || '·'}</button>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>`;
+}
+
+function mondayOfISO(iso) {
+  const d = U.parseLocal(iso || U.toDateISO());
+  const wd = (d.getDay() + 6) % 7;
+  return U.toDateISO(U.addDays(d, -wd));
+}
+
 function settingsHTML() {
   const st = Sync.status;
   const ns = notifState();
@@ -1953,6 +2033,23 @@ function settingsHTML() {
   const selected = selectedId ? S.profile(selectedId) : null;
   const raw = selectedId ? S.custodyRawFor(selectedId) : null;
   const isCycle = !!(raw && raw.mode === 'cycle');
+  const isWeeks = !!(raw && raw.mode === 'weeks');
+  const anchorPart = raw && raw.anchorPart ? raw.anchorPart : 'am';
+  const weekA = raw && Array.isArray(raw.weekA) && raw.weekA.length === 7
+    ? raw.weekA
+    : Array(7).fill(raw && raw.evenId ? raw.evenId : null);
+  const weekB = raw && Array.isArray(raw.weekB) && raw.weekB.length === 7
+    ? raw.weekB
+    : Array(7).fill(raw && raw.oddId ? raw.oddId : null);
+  const weekAnchorISO = mondayOfISO(raw && raw.anchor ? raw.anchor : U.toDateISO(new Date()));
+  const normWeek = (arr, fallback) => Array.from({ length: 7 }, (_, i) => {
+    const e = arr && arr[i];
+    if (typeof e === 'string') return { am: e, pm: e, sleep: e };
+    if (e && typeof e === 'object') return { am: e.am || fallback, pm: e.pm || fallback, sleep: e.sleep || fallback };
+    return { am: fallback, pm: fallback, sleep: fallback };
+  });
+  const wA = normWeek(weekA, raw && raw.evenId ? raw.evenId : null);
+  const wB = normWeek(weekB, raw && raw.oddId ? raw.oddId : null);
   const aDays = isCycle ? (Number(raw.aDays) || 7) : 7;
   const bDays = isCycle ? (Number(raw.bDays) || 7) : 7;
   const anchorISO = isCycle && raw.anchor ? raw.anchor : U.toDateISO(new Date());
@@ -1975,6 +2072,7 @@ function settingsHTML() {
       </label>
       <label class="switch"><input type="checkbox" id="custodyEnabled" ${raw && raw.enabled ? 'checked' : ''}><span>Garde alternée pour ${U.esc(selected ? selected.name : 'cet enfant')}</span></label>
       ${raw && raw.enabled && raw.evenId && raw.oddId ? `
+        ${isWeeks ? '' : `
         <div class="field"><span>Période 1 avec</span>
           <div class="chips">
             ${parentCandidates.length
@@ -1989,28 +2087,52 @@ function settingsHTML() {
               : '<span class="hint">Aucun profil de type « Parent ».</span>'}
           </div>
         </div>
-        <div class="field"><span>Rythme de garde</span>
-          <div class="chips">
-            <button type="button" class="chip ${isCycle && aDays === 7 && bDays === 7 ? 'on' : ''}" data-custody-preset="7-7">1 sem. / 1 sem.</button>
-            <button type="button" class="chip ${isCycle && aDays === 14 && bDays === 14 ? 'on' : ''}" data-custody-preset="14-14">2 sem. / 2 sem.</button>
-            <button type="button" class="chip ${isCycle && aDays === 3 && bDays === 4 ? 'on' : ''}" data-custody-preset="3-4">3 j / 4 j</button>
-            <button type="button" class="chip ${isCycle && aDays === 4 && bDays === 3 ? 'on' : ''}" data-custody-preset="4-3">4 j / 3 j</button>
+        `}
+        <div class="field"><span>Type de rythme</span>
+          <div class="seg">
+            <button type="button" class="seg-btn ${isWeeks ? '' : 'on'}" data-action="custody-mode" data-id="cycle">Alternance de périodes</button>
+            <button type="button" class="seg-btn ${isWeeks ? 'on' : ''}" data-action="custody-mode" data-id="weeks">Semaines types</button>
           </div>
         </div>
-        <div class="row gap">
-          <label class="field grow"><span>Jours chez ${U.esc(nameA)}</span>
-            <input type="number" min="1" max="60" step="1" id="custodyA" value="${aDays}">
+        ${isWeeks ? `
+          <p class="hint">Touchez une case pour changer le parent. Chaque jour se règle séparément le matin, l'après-midi et la nuit. Les semaines A et B alternent automatiquement.</p>
+          ${weekTable('A', wA)}
+          ${weekTable('B', wB)}
+          <label class="field"><span>La semaine A commence le (lundi)</span>
+            <input type="date" id="custodyWeekAnchor" value="${weekAnchorISO}">
           </label>
-          <label class="field grow"><span>Jours chez ${U.esc(nameB)}</span>
-            <input type="number" min="1" max="60" step="1" id="custodyB" value="${bDays}">
+          <p class="hint">Nuits de la semaine A : ${wA.filter((d) => d.sleep === raw.evenId).length} chez ${U.esc(nameA)}, ${wA.filter((d) => d.sleep === raw.oddId).length} chez ${U.esc(nameB)} · Semaine B : ${wB.filter((d) => d.sleep === raw.evenId).length} / ${wB.filter((d) => d.sleep === raw.oddId).length}.${switcher ? ` Prochain changement : <b>${U.fmtDateY(switcher.date)}</b>.` : ''}</p>
+        ` : `
+          <div class="field"><span>Rythme de garde</span>
+            <div class="chips">
+              <button type="button" class="chip ${isCycle && aDays === 7 && bDays === 7 ? 'on' : ''}" data-custody-preset="7-7">1 sem. / 1 sem.</button>
+              <button type="button" class="chip ${isCycle && aDays === 14 && bDays === 14 ? 'on' : ''}" data-custody-preset="14-14">2 sem. / 2 sem.</button>
+              <button type="button" class="chip ${isCycle && aDays === 3 && bDays === 4 ? 'on' : ''}" data-custody-preset="3-4">3 j / 4 j</button>
+              <button type="button" class="chip ${isCycle && aDays === 4 && bDays === 3 ? 'on' : ''}" data-custody-preset="4-3">4 j / 3 j</button>
+            </div>
+          </div>
+          <div class="row gap">
+            <label class="field grow"><span>Jours chez ${U.esc(nameA)}</span>
+              <input type="number" min="1" max="60" step="1" id="custodyA" value="${aDays}">
+            </label>
+            <label class="field grow"><span>Jours chez ${U.esc(nameB)}</span>
+              <input type="number" min="1" max="60" step="1" id="custodyB" value="${bDays}">
+            </label>
+          </div>
+          <label class="field"><span>Début du rythme (chez ${U.esc(nameA)})</span>
+            <input type="date" id="custodyAnchor" value="${anchorISO}">
           </label>
-        </div>
-        <label class="field"><span>Début du rythme (chez ${U.esc(nameA)})</span>
-          <input type="date" id="custodyAnchor" value="${anchorISO}">
-        </label>
-        <p class="hint">${isCycle
-          ? `Rythme : <b>${aDays} jour${aDays > 1 ? 's' : ''}</b> chez ${U.esc(nameA)}, puis <b>${bDays} jour${bDays > 1 ? 's' : ''}</b> chez ${U.esc(nameB)}.${switcher ? ` Prochain changement : <b>${U.fmtDateY(switcher.date)}</b>${S.profile(switcher.ownerId) ? ' chez ' + U.esc(S.profile(switcher.ownerId).name) : ''}.` : ''}`
-          : `Réglage actuel : semaines paires chez ${U.esc(nameA)}, impaires chez ${U.esc(nameB)}. Choisissez un rythme (ou modifiez les jours) pour le remplacer.`}</p>
+          <label class="field"><span>Le rythme démarre à</span>
+            <select id="custodyAnchorPart">
+              <option value="am" ${anchorPart === 'am' ? 'selected' : ''}>Matin</option>
+              <option value="pm" ${anchorPart === 'pm' ? 'selected' : ''}>Après-midi</option>
+              <option value="sleep" ${anchorPart === 'sleep' ? 'selected' : ''}>Nuit</option>
+            </select>
+          </label>
+          <p class="hint">${isCycle
+            ? `Rythme : <b>${aDays} jour${aDays > 1 ? 's' : ''}</b> chez ${U.esc(nameA)}, puis <b>${bDays} jour${bDays > 1 ? 's' : ''}</b> chez ${U.esc(nameB)}, à partir du ${U.fmtDateY(U.parseLocal(anchorISO))} (${anchorPart === 'am' ? 'matin' : anchorPart === 'pm' ? 'après-midi' : 'nuit'}).${switcher ? ` Prochain changement : <b>${U.fmtDateY(switcher.date)}</b>${S.profile(switcher.ownerId) ? ' chez ' + U.esc(S.profile(switcher.ownerId).name) : ''}.` : ''}`
+            : `Réglage actuel : semaines paires chez ${U.esc(nameA)}, impaires chez ${U.esc(nameB)}. Choisissez un rythme ou le mode « Semaines types » pour le remplacer.`}</p>
+        `}
         ${parentCandidates.length < 2 ? '<p class="hint">Il faut au moins deux personnes de type « Parent » pour alterner.</p>' : ''}
         ${childCandidates.length > 1 && enabledChildren > 1 ? '<button class="btn ghost wide" data-action="custody-apply-all">↔ Appliquer ces règles à tous les enfants</button>' : ''}
       ` : ''}
@@ -2050,11 +2172,11 @@ function settingsHTML() {
     <div class="settings-block">
       <h3>🤝 Validation entre parents</h3>
       <p class="muted">Quand un parent modifie la garde ou crée un événement pour un enfant, l'autre parent reçoit une demande et peut accepter ou refuser (avec un commentaire).</p>
-      <label class="switch"><input type="checkbox" id="approvalOn" ${approvalOn() ? 'checked' : ''}><span>Activer les demandes de validation</span></label>
-      <label class="field"><span>Nom de ce téléphone</span>
+      <label class="field"><span>Nom de ce téléphone <b class="req">(obligatoire)</b></span>
         <input id="deviceName" maxlength="20" value="${U.esc(myDevice().name)}" placeholder="Ex. Papa">
       </label>
-      <p class="hint">Chaque téléphone doit avoir son propre nom (Papa / Maman). Les demandes s'affichent sur l'Agenda et dans les notifications.</p>
+      <p class="hint">Ce nom identifie ce téléphone dans les demandes (Papa / Maman). Il est <b>obligatoire</b> pour activer la validation, et doit être différent sur l'autre téléphone.</p>
+      <label class="switch"><input type="checkbox" id="approvalOn" ${approvalOn() ? 'checked' : ''} ${myDevice().name ? '' : 'disabled'}><span>Activer les demandes de validation</span></label>
     </div>
 
     <div class="settings-block">
@@ -2218,6 +2340,22 @@ function bindSettings() {
     const id = currentChild();
     if (!id || !anchorInput.value) return;
     S.saveCustody(id, { mode: 'cycle', anchor: anchorInput.value });
+    render(true);
+  });
+
+  const anchorPartInput = $('#custodyAnchorPart');
+  if (anchorPartInput) anchorPartInput.addEventListener('change', () => {
+    const id = currentChild();
+    if (!id) return;
+    S.saveCustody(id, { anchorPart: anchorPartInput.value });
+    render(true);
+  });
+
+  const weekAnchorInput = $('#custodyWeekAnchor');
+  if (weekAnchorInput) weekAnchorInput.addEventListener('change', () => {
+    const id = currentChild();
+    if (!id || !weekAnchorInput.value) return;
+    S.saveCustody(id, { mode: 'weeks', anchor: mondayOfISO(weekAnchorInput.value) });
     render(true);
   });
 
@@ -2611,6 +2749,75 @@ function onAction(e) {
       render(true);
       break;
     }
+    case 'custody-mode': {
+      const sel = $('#custodyChild');
+      const cid = ui.custodyChildId || (sel ? sel.value : null);
+      if (!cid) break;
+      const cur = S.custodyRawFor(cid) || {};
+      if (!cur.evenId || !cur.oddId) break;
+      if (el.dataset.id === 'weeks') {
+        S.saveCustody(cid, {
+          mode: 'weeks',
+          weekA: Array.isArray(cur.weekA) && cur.weekA.length === 7 ? cur.weekA : Array(7).fill(cur.evenId),
+          weekB: Array.isArray(cur.weekB) && cur.weekB.length === 7 ? cur.weekB : Array(7).fill(cur.oddId),
+          anchor: mondayOfISO(cur.anchor || U.toDateISO(new Date())),
+        });
+      } else {
+        S.saveCustody(cid, {
+          mode: 'cycle',
+          aDays: cur.aDays || 7,
+          bDays: cur.bDays || 7,
+          anchor: cur.anchor || U.toDateISO(new Date()),
+          anchorPart: cur.anchorPart || 'am',
+        });
+      }
+      ui.custodyChildId = cid;
+      render(true);
+      break;
+    }
+    case 'custody-week': {
+      const selW = $('#custodyChild');
+      const cidW = ui.custodyChildId || (selW ? selW.value : null);
+      if (!cidW) break;
+      const curW = S.custodyRawFor(cidW) || {};
+      if (!curW.evenId || !curW.oddId) break;
+      const key = el.dataset.id === 'A' ? 'weekA' : 'weekB';
+      const idx = Math.max(0, Math.min(6, Number(el.dataset.day) || 0));
+      const arr = Array.isArray(curW[key]) && curW[key].length === 7
+        ? [...curW[key]]
+        : Array(7).fill(key === 'weekA' ? curW.evenId : curW.oddId);
+      arr[idx] = arr[idx] === curW.evenId ? curW.oddId : curW.evenId;
+      S.saveCustody(cidW, { mode: 'weeks', [key]: arr });
+      ui.custodyChildId = cidW;
+      render(true);
+      break;
+    }
+    case 'custody-week-part': {
+      const selP = $('#custodyChild');
+      const cidP = ui.custodyChildId || (selP ? selP.value : null);
+      if (!cidP) break;
+      const curP = S.custodyRawFor(cidP) || {};
+      if (!curP.evenId || !curP.oddId) break;
+      const keyP = el.dataset.id === 'A' ? 'weekA' : 'weekB';
+      const idxP = Math.max(0, Math.min(6, Number(el.dataset.day) || 0));
+      const partP = el.dataset.part;
+      if (!['am', 'pm', 'sleep'].includes(partP)) break;
+
+      const arrP = Array.isArray(curP[keyP]) && curP[keyP].length === 7 ? [...curP[keyP]] : Array(7).fill(null);
+      const entry = arrP[idxP];
+      const obj = typeof entry === 'string'
+        ? { am: entry, pm: entry, sleep: entry }
+        : (entry && typeof entry === 'object' ? { ...entry } : { am: curP.evenId, pm: curP.evenId, sleep: curP.evenId });
+
+      const owner = obj[partP] || curP.evenId;
+      obj[partP] = owner === curP.evenId ? curP.oddId : curP.evenId;
+      arrP[idxP] = obj;
+
+      S.saveCustody(cidP, { mode: 'weeks', [keyP]: arrP });
+      ui.custodyChildId = cidP;
+      render(true);
+      break;
+    }
     case 'custody-apply-all': {
       const sel = $('#custodyChild');
       const id = ui.custodyChildId || (sel ? sel.value : null);
@@ -2625,6 +2832,9 @@ function onAction(e) {
           aDays: raw.aDays,
           bDays: raw.bDays,
           anchor: raw.anchor,
+          anchorPart: raw.anchorPart,
+          weekA: raw.weekA,
+          weekB: raw.weekB,
         });
       }
       toast('Règles appliquées à tous les enfants');
@@ -2708,7 +2918,10 @@ function onAction(e) {
 
       const parents = S.profiles().filter((x) => x.role === 'parent');
       let split = 'half';
-      if (splitSel !== 'half' && parents.length >= 2) {
+      if (splitSel === 'custom' && parents.length >= 2) {
+        const a = Math.max(0, Math.min(100, Math.round(Number($('#expPctA').value) || 0)));
+        split = { [parents[0].id]: a, [parents[1].id]: 100 - a };
+      } else if (splitSel !== 'half' && parents.length >= 2) {
         const first = Number(splitSel);
         split = { [parents[0].id]: first, [parents[1].id]: 100 - first };
       }

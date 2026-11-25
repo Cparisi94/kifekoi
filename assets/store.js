@@ -1,7 +1,7 @@
 /* Kifékoi — magasin de données local (localStorage) + logique métier */
 
 import {
-  uid, startOf, addInterval, addDays, toDateISO, startOfDay, DAY_MS, parseLocal, isoWeekNumber,
+  uid, startOf, addInterval, addDays, toDateISO, toLocalISO, startOfDay, DAY_MS, parseLocal, isoWeekNumber,
 } from './util.js';
 
 const K_RECORDS = 'af.records.v1';
@@ -652,8 +652,11 @@ export function custodyConfigs() {
       overrides: c.overrides || {},
       mode: c.mode || 'parity',
       anchor: c.anchor || null,
+      anchorPart: c.anchorPart || 'am',
       aDays: Number(c.aDays) || 0,
       bDays: Number(c.bDays) || 0,
+      weekA: Array.isArray(c.weekA) ? c.weekA : null,
+      weekB: Array.isArray(c.weekB) ? c.weekB : null,
     });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -677,7 +680,11 @@ export function saveCustody(childId, patch) {
  * Parent "de base" pour une date (alternance + vacances), sans exception.
  * @returns {string|null}
  */
-export function custodyBaseFor(cfg, dateISO) {
+/**
+ * Parent "de base" pour une date (alternance + vacances), sans exception.
+ * @returns {{am:string|null, pm:string|null, sleep:string|null}}
+ */
+export function custodyBaseParts(cfg, dateISO) {
   if (!cfg) return null;
 
   const parents = [cfg.evenId, cfg.oddId];
@@ -685,22 +692,71 @@ export function custodyBaseFor(cfg, dateISO) {
     const p = rec.payload;
     if (!p.endDate || p.category !== 'vacances' || p.affectsCustody !== true) continue;
     if (!parents.includes(p.profileId)) continue;
-    if (dateISO >= p.date && dateISO <= p.endDate) return p.profileId;
+    if (dateISO >= p.date && dateISO <= p.endDate) {
+      return { am: p.profileId, pm: p.profileId, sleep: p.profileId };
+    }
   }
 
-  // Rythme personnalisé : période A (evenId) puis période B (oddId),
-  // en jours, à partir d'une date de référence.
+  // Semaines types : semaine A / semaine B alternées, modèle jour par jour.
+  if (cfg.mode === 'weeks' && Array.isArray(cfg.weekA) && Array.isArray(cfg.weekB) && cfg.anchor) {
+    const start = mondayOf(cfg.anchor);
+    const days = epochDay(dateISO) - epochDay(start);
+    const weekIndex = Math.floor(days / 7);
+    const even = ((weekIndex % 2) + 2) % 2 === 0;
+    const wd = (parseLocal(dateISO).getDay() + 6) % 7; // 0 = lundi
+    const entry = (even ? cfg.weekA : cfg.weekB)[wd];
+
+    if (typeof entry === 'string') return { am: entry, pm: entry, sleep: entry };
+    if (entry && typeof entry === 'object') {
+      const fallback = entry.am || cfg.evenId;
+      return {
+        am: entry.am || fallback,
+        pm: entry.pm || fallback,
+        sleep: entry.sleep || fallback,
+      };
+    }
+    return { am: cfg.evenId, pm: cfg.evenId, sleep: cfg.evenId };
+  }
+
+  // Rythme en jours, avec un départ possible en matin / après-midi / nuit.
   if (cfg.mode === 'cycle' && cfg.anchor && cfg.aDays > 0 && cfg.bDays > 0) {
-    const start = parseLocal(cfg.anchor);
-    const d = parseLocal(dateISO);
-    const days = Math.round((d - start) / 86400000);
-    const cycle = cfg.aDays + cfg.bDays;
-    const pos = ((days % cycle) + cycle) % cycle;
-    return pos < cfg.aDays ? cfg.evenId : cfg.oddId;
+    const PART = { am: 0, pm: 1, sleep: 2 };
+    const anchorPart = PART[cfg.anchorPart] != null ? PART[cfg.anchorPart] : 0;
+    const anchorPos = epochDay(cfg.anchor) * 3 + anchorPart;
+    const cycle = (cfg.aDays + cfg.bDays) * 3;
+    const out = {};
+    for (const part of ['am', 'pm', 'sleep']) {
+      const pos = epochDay(dateISO) * 3 + PART[part] - anchorPos;
+      const p = ((pos % cycle) + cycle) % cycle;
+      out[part] = p < cfg.aDays * 3 ? cfg.evenId : cfg.oddId;
+    }
+    return out;
   }
 
   const week = isoWeekNumber(parseLocal(dateISO));
-  return week % 2 === 0 ? cfg.evenId : cfg.oddId;
+  const owner = week % 2 === 0 ? cfg.evenId : cfg.oddId;
+  return { am: owner, pm: owner, sleep: owner };
+}
+
+/**
+ * Parent "de base" pour une date (le parent de la nuit).
+ * @returns {string|null}
+ */
+export function custodyBaseFor(cfg, dateISO) {
+  const parts = custodyBaseParts(cfg, dateISO);
+  if (!parts) return null;
+  return parts.sleep || parts.am || parts.pm || null;
+}
+
+function epochDay(dateISO) {
+  const d = parseLocal(dateISO);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
+
+function mondayOf(dateISO) {
+  const d = parseLocal(dateISO);
+  const wd = (d.getDay() + 6) % 7;
+  return toDateISO(addDays(d, -wd));
 }
 
 /**
@@ -710,18 +766,19 @@ export function custodyBaseFor(cfg, dateISO) {
 export function custodyDayFor(cfg, dateISO) {
   if (!cfg) return null;
 
-  const base = custodyBaseFor(cfg, dateISO);
+  const base = custodyBaseParts(cfg, dateISO);
+  if (!base) return null;
   const ov = (cfg.overrides || {})[dateISO];
 
   if (typeof ov === 'string') return { am: ov || null, pm: ov || null, sleep: ov || null };
   if (ov && typeof ov === 'object') {
     return {
-      am: 'am' in ov ? ov.am : base,
-      pm: 'pm' in ov ? ov.pm : base,
-      sleep: 'sleep' in ov ? ov.sleep : base,
+      am: 'am' in ov ? ov.am : base.am,
+      pm: 'pm' in ov ? ov.pm : base.pm,
+      sleep: 'sleep' in ov ? ov.sleep : base.sleep,
     };
   }
-  return { am: base, pm: base, sleep: base };
+  return { ...base };
 }
 
 /** Garde du jour pour tous les enfants configurés. */
@@ -748,10 +805,10 @@ export function setCustodyPartFor(childId, dateISO, part, profileId) {
   if (!day) return;
 
   const next = { ...day, [part]: profileId || null };
-  const base = custodyBaseFor(cfg, dateISO);
+  const base = custodyBaseParts(cfg, dateISO);
   const overrides = { ...(cfg.overrides || {}) };
 
-  if (next.am === base && next.pm === base && next.sleep === base) delete overrides[dateISO];
+  if (base && next.am === base.am && next.pm === base.pm && next.sleep === base.sleep) delete overrides[dateISO];
   else overrides[dateISO] = next;
 
   saveCustody(childId, { overrides });

@@ -78,7 +78,8 @@ export const HELP_SECTIONS = [
     html: `<ul class="help-list">
       <li><b>Facultatif</b> : cette partie sert uniquement si les <b>parents sont séparés</b> et se partagent la garde des enfants.</li>
       <li>Réglages → <b>Garde alternée</b> : choisissez l'enfant, activez, puis désignez les deux parents.</li>
-      <li><b>Rythme</b> : 1 semaine / 1 semaine, 2 semaines / 2 semaines, 3 j / 4 j… ou un nombre de jours libre (7 = 1 semaine), avec une <b>date de départ</b> : le changement peut donc tomber un mercredi, un vendredi, etc.</li>
+      <li><b>Rythme</b> : 1 semaine / 1 semaine, 2 semaines / 2 semaines, 3 j / 4 j… ou un nombre de jours libre (7 = 1 semaine), avec une <b>date de départ</b> et le moment du départ (<b>matin, après-midi ou nuit</b>) : le changement peut donc tomber un mercredi après-midi, etc.</li>
+      <li><b>Semaines types</b> : touchez chaque jour d'une semaine A et d'une semaine B pour choisir le parent ; les deux semaines alternent ensuite automatiquement. Idéal pour « lundi-mardi chez Papa, mercredi chez Maman… ».</li>
       <li>Chaque enfant a ses propres règles. « Appliquer à tous les enfants » copie la règle en cours.</li>
       <li>Les barres au-dessus du calendrier indiquent chez qui se passe <b>le matin</b> et <b>l'après-midi</b> ; la lettre indique où l'enfant <b>dort</b>.</li>
       <li>Pour un jour précis : <b>Agenda → le jour → Modifier</b> → Matin / Après-midi / Nuit.</li>

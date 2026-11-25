@@ -233,8 +233,25 @@ export async function initNativePush() {
         state.nativeError = String((err && (err.error || err.message)) || err || 'inconnue');
         console.warn('FCM erreur', err);
       });
-      await PN.addListener('pushNotificationReceived', () => {
+      await PN.addListener('pushNotificationReceived', (n) => {
         try { Sync.syncNow('push'); } catch { /* ignore */ }
+        // Application au premier plan : Android n'affiche pas la notification
+        // FCM automatiquement, on la programme nous-mêmes.
+        try {
+          const Cap = window.Capacitor;
+          const LN = Cap && Cap.Plugins ? Cap.Plugins.LocalNotifications : null;
+          if (LN) {
+            LN.schedule({
+              notifications: [{
+                id: 900000 + Math.floor(Math.random() * 99999),
+                title: (n && n.title) || 'Kifékoi',
+                body: (n && n.body) || '',
+                channelId: 'kifekoi',
+                schedule: { at: new Date(Date.now() + 800) },
+              }],
+            }).catch(() => {});
+          }
+        } catch { /* ignore */ }
       });
       await PN.addListener('pushNotificationActionPerformed', () => {
         try { Sync.syncNow('push-open'); } catch { /* ignore */ }

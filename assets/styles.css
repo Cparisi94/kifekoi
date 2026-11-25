@@ -1601,3 +1601,80 @@ iframe[id^="nl-badge"] {
 }
 .calendar .cal-day.out .cal-num { opacity: 1; }
 .calendar .cal-day.out.is-holiday { background: rgba(255, 255, 255, .62); color: rgba(13, 39, 51, .6); }
+
+/* Historique des demandes (Bilan) */
+.req-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.req-row + .req-row { margin-top: 8px; }
+.req-badge {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.req-badge.ok { background: #e4f6ec; color: #0f8a5f; }
+.req-badge.no { background: #fdeaea; color: #c0392b; }
+.req-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.req-main b { font-size: 13px; }
+.req-main .muted { font-size: 11.5px; }
+.req-comment { font-size: 12px; color: var(--muted); font-style: italic; }
+
+/* Semaines types */
+.week-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 0 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--c, var(--brand)) 35%, var(--line));
+  background: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface));
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.week-day span { color: var(--muted); font-weight: 600; }
+.week-day b { font-size: 15px; line-height: 1; }
+
+/* Semaines types : grille 7 jours x 3 moments */
+.week-table { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.week-row { display: grid; grid-template-columns: 42px repeat(7, 1fr); gap: 4px; align-items: center; }
+.week-row-head { margin-bottom: 1px; }
+.week-daylab { text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); }
+.week-lab { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.week-cell {
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--c, var(--brand)) 38%, var(--line));
+  background: color-mix(in srgb, var(--c, var(--brand)) 16%, var(--surface));
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.week-cell:active { transform: scale(.94); }
+
+/* Validation entre parents : nom obligatoire */
+.field .req { color: #c0392b; font-weight: 800; font-size: 10.5px; letter-spacing: .02em; }
+.switch input:disabled { opacity: .45; }
+.switch input:disabled + span { opacity: .6; }
