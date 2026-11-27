@@ -2008,6 +2008,7 @@ function bilanHTML() {
   const custodyBlock = counts.length
     ? `<section class="block">
         <div class="block-head"><h2>Garde</h2><span class="count">${U.fmtDateY(U.parseLocal(range.from))} → ${U.fmtDateY(U.parseLocal(range.to))}</span></div>
+        <div class="card bilan-card">
         ${counts.map(({ cfg, counts: c }) => {
           const total = (c[cfg.evenId] || 0) + (c[cfg.oddId] || 0) || 1;
           const row = (id) => {
@@ -2025,6 +2026,7 @@ function bilanHTML() {
             ${row(cfg.evenId)}${row(cfg.oddId)}
           </div>`;
         }).join('')}
+        </div>
       </section>`
     : `<section class="block">
         <div class="block-head"><h2>Garde</h2></div>
@@ -2098,7 +2100,7 @@ function bilanHTML() {
 
     return `<section class="block">
       <div class="block-head"><h2>Demandes</h2><span class="count">${all.length}</span></div>
-      ${all.length ? rows : '<p class="hint">Aucune demande traitée pour le moment.</p>'}
+      ${all.length ? `<div class="card req-list">${rows}</div>` : '<p class="hint">Aucune demande traitée pour le moment.</p>'}
     </section>`;
   })();
 
