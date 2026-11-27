@@ -622,23 +622,57 @@ function peopleHTML() {
       <button class="btn primary" data-action="add-person">+ Ajouter une personne</button></div>`;
   }
 
+  const roleLabel = { parent: 'Parent', child: 'Enfant', animal: 'Animal' };
+
+  const groups = [
+    ['parent', 'Parents'],
+    ['child', 'Enfants'],
+    ['animal', 'Animaux'],
+  ]
+    .map(([role, label]) => ({ label, list: profs.filter((p) => (p.role || 'parent') === role) }))
+    .filter((g) => g.list.length);
+
+  const card = (p) => {
+    const st = S.statsFor(p.id);
+    const age = p.birthday ? `${S.ageFrom(p.birthday)} ans` : '';
+    return `<button class="person-card card" data-action="open-profile" data-id="${p.id}" style="--c:${p.color}">
+      ${avatarHTML(p)}
+      <span class="person-body">
+        <span class="person-name">${U.esc(p.name)}</span>
+        <span class="person-sub">${st.next
+          ? `${(CATS[st.next.payload.category] || CATS.autre).icon} ${U.esc(st.next.payload.title)} · ${U.relLabel(st.next.date)}`
+          : 'Aucun rendez-vous à venir'}</span>
+        <span class="person-meta">
+          <span class="person-role">${roleLabel[p.role] || 'Membre'}</span>
+          ${age ? `<span>${age}</span>` : ''}
+          <span>${st.total} à venir</span>
+          ${st.notes ? `<span>${st.notes} info${st.notes > 1 ? 's' : ''}</span>` : ''}
+        </span>
+      </span>
+      <span class="person-chev" aria-hidden="true">›</span>
+    </button>`;
+  };
+
   return `<div class="stack">
-    <div class="people-grid">
-      ${profs.map((p) => {
-        const st = S.statsFor(p.id);
-        return `<button class="person-card card" data-action="open-profile" data-id="${p.id}" style="--c:${p.color}">
-          ${avatarHTML(p)}
-          <span class="person-name">${U.esc(p.name)}</span>
-          <span class="person-sub">${st.next
-            ? `📅 ${U.esc(st.next.payload.title)} · ${U.relLabel(st.next.date)}`
-            : 'Aucun rendez-vous à venir'}</span>
-          <span class="person-meta">
-            <span>${st.total} à venir</span>
-            <span>${st.notes} info${st.notes > 1 ? 's' : ''}</span>
-          </span>
-        </button>`;
-      }).join('')}
-    </div>
+    <header class="agenda-head">
+      <div class="agenda-date">
+        <span>La famille</span>
+        <h1>Personnes</h1>
+      </div>
+      <div class="agenda-actions">
+        <button class="add-btn" data-action="add-person" aria-label="Ajouter une personne">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    ${groups.map((g) => `<section class="block">
+      <div class="block-head"><h2>${g.label}</h2><span class="count">${g.list.length}</span></div>
+      <div class="people-list">${g.list.map(card).join('')}</div>
+    </section>`).join('')}
+
     <button class="btn ghost wide" data-action="add-person">+ Ajouter une personne</button>
   </div>`;
 }

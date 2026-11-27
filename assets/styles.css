@@ -1918,3 +1918,25 @@ body.ro .tabbar [data-view="bilan"] { display: none !important; }
   margin-top: 0;
   border-top: 1px solid var(--line);
 }
+
+/* Onglet Personnes : liste par groupe */
+.people-list { display: flex; flex-direction: column; gap: 8px; }
+.person-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  width: 100%;
+}
+.person-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.person-name { font-size: 15px; font-weight: 750; letter-spacing: -.2px; }
+.person-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.person-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.person-role { font-weight: 800; color: var(--brand); }
+.person-chev { color: var(--muted); font-size: 18px; line-height: 1; opacity: .7; flex: 0 0 auto; }
