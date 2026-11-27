@@ -656,7 +656,6 @@ function peopleHTML() {
   return `<div class="stack">
     <header class="agenda-head">
       <div class="agenda-date">
-        <span>La famille</span>
         <h1>Personnes</h1>
       </div>
       <div class="agenda-actions">
