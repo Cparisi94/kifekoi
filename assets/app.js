@@ -12,6 +12,8 @@ import * as U from './util.js';
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+const APP_VERSION = '3.4.43';
+
 /* Pont natif (APK Android). En PWA, window.KIFEKOI_NATIVE est absent. */
 const Native = (typeof window !== 'undefined' && window.KIFEKOI_NATIVE) || null;
 const isNative = Boolean(Native && Native.isNative);
@@ -2661,6 +2663,7 @@ function settingsHTML() {
         <button class="btn ghost grow" data-action="help">Ouvrir l'aide</button>
         <button class="btn ghost grow" data-action="tuto-replay">Revoir le tutoriel</button>
       </div>
+      <button class="btn ghost wide" data-action="force-update">🔄 Forcer la mise à jour</button>
     </div>
 
     <div class="settings-block">
@@ -2668,7 +2671,7 @@ function settingsHTML() {
       ${installBlock}
     </div>
 
-    <p class="about">Kifékoi · v3.4<br>Données stockées sur vos téléphones${Sync.configured ? ' et synchronisées via votre espace Supabase' : ''}.</p>
+    <p class="about">Kifékoi · v${APP_VERSION}<br>Données stockées sur vos téléphones${Sync.configured ? ' et synchronisées via votre espace Supabase' : ''}.</p>
   </div>`;
 }
 
@@ -3347,6 +3350,19 @@ function onAction(e) {
         body: 'Si vous voyez ce message, le push fonctionne même app fermée.',
         tag: 'test',
       }).then((ok) => toast(ok ? 'Test envoyé aux autres téléphones' : 'Envoi impossible', 4500));
+      break;
+    }
+    case 'force-update': {
+      toast('Mise à jour…', 2000);
+      (async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        } catch { /* ignore */ }
+        location.reload();
+      })();
       break;
     }
     case 'help':

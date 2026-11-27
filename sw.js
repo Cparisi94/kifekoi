@@ -1,6 +1,6 @@
 /* Kifékoi — service worker (hors ligne + notifications) */
 
-const VERSION = 'af-v3.4.42';
+const VERSION = 'af-v3.4.43';
 const CACHE = `kifekoi-${VERSION}`;
 
 const ASSETS = [
