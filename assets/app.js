@@ -400,24 +400,23 @@ function agendaHTML() {
   const nextProf = nextSoon ? S.profile(nextSoon.payload.profileId) : null;
   const count = dayOpen.length;
 
-  // Bandeau compact : uniquement s'il y a des événements aujourd'hui.
-  const showHero = isToday && count > 0;
-
-  const hero = showHero
-    ? `<section class="hero compact">
-        <div class="hero-text">
-          <span class="hero-name">Kifékoi</span>
-          <p class="hero-summary"><b>${count} événement${count > 1 ? 's' : ''}</b>${nextSoon
-            ? ` · ${nextProf ? U.esc(nextProf.name) + ' ' : ''}${CATS[nextSoon.payload.category]?.icon || '📌'} ${U.esc(nextSoon.payload.title)}${nextSoon.payload.allDay ? '' : '\u00A0' + U.fmtTime(S.occurrenceStart(nextSoon))}${nextSoon.payload.accompanist ? ` · avec ${U.esc((S.profile(nextSoon.payload.accompanist) || {}).name || '')}` : ''}`
-            : ''}</p>
-        </div>
-        <button class="add-btn hero-add" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
-          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+  // En-tête : date du jour + actions (recherche, ajout).
+  const head = `
+    <header class="agenda-head">
+      <div class="agenda-date">
+        <span>Bonjour</span>
+        <h1>${(() => { const label = U.fmtLong(isToday ? now : sel); return label.charAt(0).toUpperCase() + label.slice(1); })()}</h1>
+        ${count ? `<p class="agenda-sub">${count} événement${count > 1 ? 's' : ''} ${isToday ? 'aujourd\u2019hui' : 'ce jour-là'}</p>` : ''}
+      </div>
+      <div class="agenda-actions">
+        <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
+        <button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
           </svg>
         </button>
-      </section>`
-    : '';
+      </div>
+    </header>`;
 
   const overdueBlock = overdueList.length
     ? `<section class="block">
@@ -426,22 +425,10 @@ function agendaHTML() {
        </section>`
     : '';
 
-  const filters = `
-    <div class="filter-row">
-      <div class="chips filter-chips">
-        <button class="chip ${ui.filter === 'all' ? 'on' : ''}" data-action="filter" data-id="all">Tout</button>
-        ${S.profiles().map((p) => `<button class="chip chip-person ${ui.filter === p.id ? 'on' : ''}" data-action="filter" data-id="${p.id}" style="--c:${p.color}">
-          <span class="chip-avatar">${p.emoji}</span>${U.esc(p.name)}
-        </button>`).join('')}
-      </div>
-      <div class="filter-actions">
-        <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
-        ${showHero ? '' : `<button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
-          </svg>
-        </button>`}
-      </div>
+  const legend = `
+    <div class="cal-legend cal-legend-people">
+      <span class="legend-item"><i class="legend-square"></i> Vacances · zone ${schoolZone()}</span>
+      ${S.profiles().map((p) => `<span class="legend-item"><i class="legend-dot" style="--c:${p.color}"></i>${p.emoji} ${U.esc(p.name)}</span>`).join('')}
     </div>`;
 
   const weekMode = ui.calView === 'week';
@@ -492,7 +479,7 @@ function agendaHTML() {
         </div>
         <button class="icon-btn" data-action="${weekMode ? 'week-next' : 'month-next'}" aria-label="Suivant">›</button>
       </div>
-      ${weekMode ? weekList : `
+      ${weekMode ? `${weekList}${legend}` : `
       <div class="cal-grid cal-weekdays">
         ${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d) => `<span>${d}</span>`).join('')}
       </div>
@@ -529,7 +516,7 @@ function agendaHTML() {
           </button>`;
         }).join('')}
       </div>
-      <p class="cal-legend"><i></i> Vacances scolaires · zone ${schoolZone()}</p>`}
+      ${legend}`}
     </div>`;
 
   const dayBlock = `
@@ -573,7 +560,7 @@ function agendaHTML() {
     : '';
 
   return `<div class="stack">
-    ${hero}
+    ${head}
     ${S.profiles().length === 0 ? `<section class="card empty">
       <span class="empty-emoji">👋</span>
       <p>Bienvenue dans Kifékoi !<br>Commencez par ajouter les personnes de votre famille.</p>
@@ -581,7 +568,6 @@ function agendaHTML() {
     </section>` : ''}
     ${approvalBanner()}
     ${overdueBlock}
-    ${filters}
     ${grid}
     ${dayBlock}
     ${nextBlock}
