@@ -409,7 +409,9 @@ function agendaHTML() {
         ${count ? `<p class="agenda-sub">${count} événement${count > 1 ? 's' : ''} ${isToday ? 'aujourd\u2019hui' : 'ce jour-là'}</p>` : ''}
       </div>
       <div class="agenda-actions">
-        <button class="search-btn" data-action="search" aria-label="Rechercher">🔍</button>
+        <button class="search-btn" data-action="search" aria-label="Rechercher">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16.2 16.2L21 21"/></svg>
+        </button>
         <button class="add-btn" data-action="add-event" data-date="${ui.selected}" aria-label="Ajouter un événement">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path d="M12 4.5v15M4.5 12h15" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>

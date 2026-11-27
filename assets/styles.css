@@ -1894,3 +1894,7 @@ body.ro .tabbar [data-view="bilan"] { display: none !important; }
 .today-row.is-done .today-time { opacity: .55; }
 .today-more { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
 .today-chev { flex: 0 0 auto; color: var(--muted); font-size: 16px; line-height: 1; opacity: .7; }
+
+/* Loupe assortie aux icônes d'onglets */
+.search-btn { color: var(--brand); }
+.search-btn svg { width: 20px; height: 20px; display: block; }
