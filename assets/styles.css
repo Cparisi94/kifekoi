@@ -1814,3 +1814,4 @@ body.ro .check,
 body.ro .add-btn {
   display: none !important;
 }
+body.ro .tabbar [data-view="bilan"] { display: none !important; }

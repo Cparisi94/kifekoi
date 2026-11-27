@@ -818,6 +818,8 @@ function remCard(r) {
 /* ------------------------------------------------------------------ */
 
 function render(force = false) {
+  if (isReadOnly() && ui.view === 'bilan') ui.view = 'agenda';
+
   const main = $('#view');
   const changedView = main.dataset.view !== ui.view || ui.view === 'profile';
   const scroll = window.scrollY;
