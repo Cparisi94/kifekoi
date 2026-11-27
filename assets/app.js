@@ -418,6 +418,33 @@ function agendaHTML() {
       </div>
     </header>`;
 
+  const nightLine = (() => {
+    if (!isToday) return '';
+    const rows = S.custodyDays(todayISO).filter((x) => x.day && x.day.sleep);
+    if (!rows.length) return '';
+    const names = [...new Set(rows.map(({ day }) => (S.profile(day.sleep) || {}).name || '—'))];
+    if (names.length === 1) return `<div class="today-night">🌙 Ce soir chez <b>${U.esc(names[0])}</b></div>`;
+    const parts = rows.map(({ cfg, day }) => `${cfg.emoji} ${U.esc((S.profile(day.sleep) || {}).name || '—')}`);
+    return `<div class="today-night">🌙 Ce soir : ${parts.join(' · ')}</div>`;
+  })();
+
+  const todayCard = (isToday && dayAll.length)
+    ? `<section class="today-card">
+        <div class="today-head"><b>Aujourd\u2019hui</b><span>${dayAll.length} événement${dayAll.length > 1 ? 's' : ''}</span></div>
+        ${dayAll.slice(0, 3).map((i) => {
+          const pr = S.profile(i.payload.profileId);
+          const acc = i.payload.accompanist ? S.profile(i.payload.accompanist) : null;
+          return `<button type="button" class="today-row" data-action="open-event" data-id="${i.rec.id}" data-date="${i.date}">
+            <span class="today-time">${i.payload.allDay ? 'Jour' : U.fmtTime(S.occurrenceStart(i))}</span>
+            <i class="today-dot" style="--c:${pr ? pr.color : '#94a3b8'}"></i>
+            <span class="today-title">${(CATS[i.payload.category] || CATS.autre).icon} ${U.esc(i.payload.title)}</span>
+            <span class="today-who">${pr ? `${pr.emoji || ''} ${U.esc(pr.name)}` : ''}${acc ? ` · avec ${U.esc(acc.name)}` : ''}</span>
+          </button>`;
+        }).join('')}
+        ${nightLine}
+      </section>`
+    : '';
+
   const overdueBlock = overdueList.length
     ? `<section class="block">
          <div class="block-head"><h2>En retard</h2><span class="count">${overdueList.length}</span></div>
@@ -561,6 +588,7 @@ function agendaHTML() {
 
   return `<div class="stack">
     ${head}
+    ${todayCard}
     ${S.profiles().length === 0 ? `<section class="card empty">
       <span class="empty-emoji">👋</span>
       <p>Bienvenue dans Kifékoi !<br>Commencez par ajouter les personnes de votre famille.</p>
