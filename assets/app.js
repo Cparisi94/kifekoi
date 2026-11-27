@@ -70,7 +70,37 @@ const EMOJIS = [
 /* ------------------------------------------------------------------ */
 
 function avatarHTML(p, cls = '') {
-  return `<span class="avatar ${cls}" style="--c:${(p && p.color) || '#0492c2'}">${U.esc((p && p.emoji) || '🙂')}</span>`;
+  const color = (p && p.color) || '#0492c2';
+  const open = `<span class="avatar ${cls}" style="--c:${color}">`;
+  if (p && p.photo) return `${open}<img src="${p.photo}" alt=""></span>`;
+  return `${open}${U.esc((p && p.emoji) || '🙂')}</span>`;
+}
+
+/* Réduit une image choisie en vignette carrée (data URL JPEG). */
+function fileToAvatar(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const s = Math.min(img.width, img.height);
+        const sx = (img.width - s) / 2;
+        const sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -673,8 +703,6 @@ function peopleHTML() {
       <div class="block-head"><h2>${g.label}</h2><span class="count">${g.list.length}</span></div>
       <div class="people-list">${g.list.map(card).join('')}</div>
     </section>`).join('')}
-
-    <button class="btn ghost wide" data-action="add-person">+ Ajouter une personne</button>
   </div>`;
 }
 
@@ -1836,6 +1864,7 @@ function profileSheet(id) {
 
   let emoji = p.emoji || '🙋🏽';
   let role = p.role || 'parent';
+  let photo = p.photo || '';
 
   const ROLE_OPTIONS = [
     ['parent', '👨‍👩‍👦 Parent'],
@@ -1855,6 +1884,16 @@ function profileSheet(id) {
           <label class="field grow"><span>Prénom / nom</span>
             <input name="name" required maxlength="40" value="${U.esc(p.name)}" placeholder="Ex. Lucas">
           </label>
+        </div>
+
+        <div class="field">
+          <span>Photo (facultatif)</span>
+          <div class="row gap">
+            <button type="button" class="btn ghost grow" id="photoPick">📷 Choisir une photo</button>
+            <button type="button" class="btn ghost" id="photoClear" ${photo ? '' : 'hidden'}>Retirer</button>
+          </div>
+          <input type="file" id="photoInput" accept="image/*" hidden>
+          <p class="hint">La photo remplace l'emoji sur les cartes et la fiche.</p>
         </div>
 
         <div class="field">
@@ -1890,8 +1929,35 @@ function profileSheet(id) {
   const colorInput = form.querySelector('[name="color"]');
 
   const refreshPreview = () => {
-    $('#avatarPreview').innerHTML = avatarHTML({ emoji, color: colorInput.value }, 'xl');
+    $('#avatarPreview').innerHTML = avatarHTML({ emoji, color: colorInput.value, photo }, 'xl');
   };
+
+  const photoInput = $('#photoInput');
+  const photoClear = $('#photoClear');
+  const photoPick = $('#photoPick');
+
+  if (photoPick && photoInput) {
+    photoPick.addEventListener('click', () => photoInput.click());
+    photoInput.addEventListener('change', async () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (!file) return;
+      try {
+        photo = await fileToAvatar(file);
+        if (photoClear) photoClear.hidden = false;
+        refreshPreview();
+      } catch {
+        toast('Photo illisible');
+      }
+    });
+  }
+
+  if (photoClear) {
+    photoClear.addEventListener('click', () => {
+      photo = '';
+      photoClear.hidden = true;
+      refreshPreview();
+    });
+  }
 
   $('#roleChips').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-role]');
@@ -1919,6 +1985,7 @@ function profileSheet(id) {
       name: String(fd.get('name') || '').trim() || 'Sans nom',
       emoji,
       role,
+      photo: photo || null,
       birthday: String(fd.get('birthday') || '') || null,
       color: String(fd.get('color') || '#2563eb'),
     };

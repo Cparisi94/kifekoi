@@ -1947,3 +1947,6 @@ body.ro .tabbar [data-view="bilan"] { display: none !important; }
 .person-sub { font-size: 11.5px; }
 .person-meta { font-size: 11.5px; }
 .person-role { font-size: 11.5px; }
+
+/* Photo de profil à la place de l'emoji */
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
