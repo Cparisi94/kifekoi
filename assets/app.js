@@ -2476,6 +2476,7 @@ function settingsHTML() {
         <button class="btn ghost wide" data-action="tuto-replay">Revoir le tutoriel</button>
       </div>
       <p class="about">Kifékoi · lecture seule</p>
+
     </div>`;
   }
 
@@ -2665,8 +2666,31 @@ function settingsHTML() {
   })();
 
   return `<div class="stack settings-page">
-    ${syncBlock}
-    ${accountsBlock}
+    <div class="settings-block">
+      <h3>❓ Aide</h3>
+      <p class="muted">Mode d'emploi, astuces et réponses aux questions fréquentes.</p>
+      <div class="row gap">
+        <button class="btn ghost grow" data-action="help">Ouvrir l'aide</button>
+        <button class="btn ghost grow" data-action="tuto-replay">Revoir le tutoriel</button>
+      </div>
+      <button class="btn ghost wide" data-action="force-update">🔄 Forcer la mise à jour</button>
+    </div>
+
+    <div class="settings-block">
+      <h3>🔒 Accès en lecture seule</h3>
+      <p class="muted">Verrouille cet appareil : l'agenda reste consultable, mais aucune modification n'est possible. Utile pour le téléphone d'un enfant.</p>
+      <button class="btn ghost wide" data-action="lock-readonly">Verrouiller cet appareil</button>
+    </div>
+
+    <div class="settings-block">
+      <h3>🏫 Zone de vacances scolaires</h3>
+      <p class="muted">Utilisée pour afficher les vacances dans le calendrier.</p>
+      <div class="chips">
+        ${['A', 'B', 'C'].map((z) => `<button type="button" class="chip ${schoolZone() === z ? 'on' : ''}" data-action="set-zone" data-id="${z}">Zone ${z}</button>`).join('')}
+      </div>
+      <p class="hint">A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers · B : Aix-Marseille, Amiens, Lille, Nancy-Metz, Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg · C : Créteil, Montpellier, Paris, Toulouse, Versailles.</p>
+    </div>
+
     ${custodyBlock}
 
     <div class="settings-block">
@@ -2677,6 +2701,18 @@ function settingsHTML() {
       </label>
       <p class="hint">Ce nom identifie ce téléphone dans les demandes (Papa / Maman). Il est <b>obligatoire</b> pour activer la validation, et doit être différent sur l'autre téléphone.</p>
       <label class="switch"><input type="checkbox" id="approvalOn" ${approvalOn() ? 'checked' : ''} ${myDevice().name ? '' : 'disabled'}><span>Activer les demandes de validation</span></label>
+    </div>
+
+    ${syncBlock}
+
+    <div class="settings-block">
+      <h3>💾 Données</h3>
+      <div class="row gap">
+        <button class="btn ghost grow" data-action="export-json">Sauvegarder</button>
+        <button class="btn ghost grow" data-action="import-json">Restaurer</button>
+      </div>
+      <button class="btn ghost wide" data-action="dedupe">🧹 Nettoyer les doublons de personnes</button>
+      <p class="hint">Une sauvegarde est un fichier que vous pouvez conserver ou envoyer sur l'autre téléphone. Le nettoyage fusionne les personnes portant le même nom et réaffecte leurs événements.</p>
     </div>
 
     <div class="settings-block">
@@ -2698,40 +2734,7 @@ function settingsHTML() {
 
     ${pushBlock}
 
-    <div class="settings-block">
-      <h3>🏫 Zone de vacances scolaires</h3>
-      <p class="muted">Utilisée pour afficher les vacances dans le calendrier.</p>
-      <div class="chips">
-        ${['A', 'B', 'C'].map((z) => `<button type="button" class="chip ${schoolZone() === z ? 'on' : ''}" data-action="set-zone" data-id="${z}">Zone ${z}</button>`).join('')}
-      </div>
-      <p class="hint">A : Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers · B : Aix-Marseille, Amiens, Lille, Nancy-Metz, Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg · C : Créteil, Montpellier, Paris, Toulouse, Versailles.</p>
-    </div>
-
-    <div class="settings-block">
-      <h3>💾 Données</h3>
-      <div class="row gap">
-        <button class="btn ghost grow" data-action="export-json">Sauvegarder</button>
-        <button class="btn ghost grow" data-action="import-json">Restaurer</button>
-      </div>
-      <button class="btn ghost wide" data-action="dedupe">🧹 Nettoyer les doublons de personnes</button>
-      <p class="hint">Une sauvegarde est un fichier que vous pouvez conserver ou envoyer sur l'autre téléphone. Le nettoyage fusionne les personnes portant le même nom et réaffecte leurs événements.</p>
-    </div>
-
-    <div class="settings-block">
-      <h3>🔒 Accès en lecture seule</h3>
-      <p class="muted">Verrouille cet appareil : l'agenda reste consultable, mais aucune modification n'est possible. Utile pour le téléphone d'un enfant.</p>
-      <button class="btn ghost wide" data-action="lock-readonly">Verrouiller cet appareil</button>
-    </div>
-
-    <div class="settings-block">
-      <h3>❓ Aide</h3>
-      <p class="muted">Mode d'emploi, astuces et réponses aux questions fréquentes.</p>
-      <div class="row gap">
-        <button class="btn ghost grow" data-action="help">Ouvrir l'aide</button>
-        <button class="btn ghost grow" data-action="tuto-replay">Revoir le tutoriel</button>
-      </div>
-      <button class="btn ghost wide" data-action="force-update">🔄 Forcer la mise à jour</button>
-    </div>
+    ${accountsBlock}
 
     <div class="settings-block">
       <h3>📲 Installation</h3>
@@ -2739,6 +2742,7 @@ function settingsHTML() {
     </div>
 
     <p class="about">Kifékoi · v${APP_VERSION}<br>Données stockées sur vos téléphones${Sync.configured ? ' et synchronisées via votre espace Supabase' : ''}.</p>
+
   </div>`;
 }
 
