@@ -1794,3 +1794,23 @@ iframe[id^="nl-badge"] {
   box-shadow: 0 0 0 1.5px var(--c, #94a3b8);
 }
 .calendar .cal-day.sel .dots i.dot-accomp { background: var(--a, var(--c, #94a3b8)); }
+
+/* ---------------------- Mode lecture seule ---------------------- */
+
+body.ro [data-action="add-event"],
+body.ro [data-action="add-person"],
+body.ro [data-action="edit-profile"],
+body.ro [data-action="delete-person"],
+body.ro [data-action="edit-contact"],
+body.ro [data-action="add-contact"],
+body.ro [data-action="add-note"],
+body.ro [data-action="add-expense"],
+body.ro [data-action="settle-expense"],
+body.ro [data-action="request-accept"],
+body.ro [data-action="request-refuse"],
+body.ro [data-action="toggle-done"],
+body.ro [data-action="custody-toggle"],
+body.ro .check,
+body.ro .add-btn {
+  display: none !important;
+}

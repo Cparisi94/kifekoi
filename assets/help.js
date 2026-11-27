@@ -148,6 +148,7 @@ export const HELP_SECTIONS = [
       <li><b>Une demande reste « En attente ».</b> Elle attend la réponse de l'autre parent ; vous pouvez la refuser/accepter depuis « Demandes ».</li>
       <li><b>Comment supprimer un événement ?</b> Ouvrez-le puis « Supprimer » (une demande est créée si la validation est active).</li>
       <li><b>Puis-je utiliser Kifékoi sans compte ?</b> Oui, en local, mais les données ne seront pas partagées.</li>
+      <li><b>Téléphone d'un enfant :</b> Réglages → <b>Accès en lecture seule</b> → verrouillez avec un code parent à 4 chiffres. L'enfant consulte l'agenda, mais ne peut rien modifier.</li>
     </ul>`,
   },
 ];

@@ -117,6 +117,42 @@ function setApproval(on) {
   try { localStorage.setItem(APPROVAL_KEY, on ? '1' : '0'); } catch { /* ignore */ }
 }
 
+/* ------------------------ Lecture seule ------------------------ */
+
+const K_RO = 'af.readonly.v1';
+const K_PIN = 'af.pin.v1';
+
+function isReadOnly() {
+  try { return localStorage.getItem(K_RO) === '1'; } catch { return false; }
+}
+
+function setReadOnly(on) {
+  try { localStorage.setItem(K_RO, on ? '1' : '0'); } catch { /* ignore */ }
+}
+
+function pinMatches(pin) {
+  try {
+    const stored = localStorage.getItem(K_PIN) || '';
+    return stored ? atob(stored) === String(pin) : false;
+  } catch {
+    return false;
+  }
+}
+
+function storePin(pin) {
+  try { localStorage.setItem(K_PIN, btoa(String(pin))); } catch { /* ignore */ }
+}
+
+/* Actions qui modifient les données (bloquées en lecture seule). */
+const WRITE_ACTIONS = new Set([
+  'add-event', 'toggle-done', 'add-person', 'delete-person', 'edit-profile', 'edit-contact', 'add-contact',
+  'add-note', 'request-accept', 'request-refuse', 'add-expense', 'save-expense', 'delete-expense',
+  'settle-expense', 'edit-expense', 'custody-toggle', 'custody-even', 'custody-odd', 'custody-preset',
+  'custody-mode', 'custody-week', 'custody-week-part', 'custody-apply-all', 'dedupe', 'import-json',
+  'set-zone', 'sign-up', 'sign-out', 'sync-now', 'push-on', 'push-off', 'push-test',
+  'enable-notif', 'test-notif', 'install',
+]);
+
 /* Zone de vacances scolaires (A, B ou C). */
 const ZONE_KEY = 'af.zone.v1';
 
@@ -814,6 +850,7 @@ function render(force = false) {
 
   main.dataset.view = ui.view;
   main.innerHTML = html;
+  document.body.classList.toggle('ro', isReadOnly());
 
   const active = ui.view === 'profile' ? 'people' : ui.view;
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.view === active));
@@ -994,6 +1031,109 @@ async function nativeDiagSheet() {
         </div>
         <button type="button" class="btn primary wide" data-action="native-retry">Réessayer l'enregistrement</button>
         <p class="hint">Après « Réessayer », attends 3 secondes puis rouvre le diagnostic.</p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost grow" data-close>Fermer</button>
+      </div>
+    </div>
+  `);
+}
+
+/* ------------------------ Lecture seule ------------------------ */
+
+function lockReadOnlySheet() {
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>🔒 Verrouiller</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted">Choisissez un code à 4 chiffres. Il sera demandé pour déverrouiller cet appareil.</p>
+        <label class="field"><span>Code parent (4 chiffres)</span>
+          <input id="roPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+        </label>
+        <p class="hint">Ce verrou protège l'application sur cet appareil (ce n'est pas une sécurité côté serveur).</p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost" data-close>Annuler</button>
+        <button type="button" class="btn primary grow" data-action="do-lock-readonly">Verrouiller</button>
+      </div>
+    </div>
+  `);
+  setTimeout(() => { const i = $('#roPin'); if (i) i.focus(); }, 150);
+}
+
+function unlockReadOnlySheet() {
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>🔓 Déverrouiller</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted">Saisissez le code parent pour rendre cet appareil modifiable.</p>
+        <label class="field"><span>Code parent (4 chiffres)</span>
+          <input id="roPinUnlock" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+        </label>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost" data-close>Annuler</button>
+        <button type="button" class="btn primary grow" data-action="do-unlock-readonly">Déverrouiller</button>
+      </div>
+    </div>
+  `);
+  setTimeout(() => { const i = $('#roPinUnlock'); if (i) i.focus(); }, 150);
+}
+
+function eventViewSheet(id) {
+  const rec = S.get(id);
+  if (!rec) return;
+  const p = rec.payload;
+  const prof = S.profile(p.profileId);
+  const acc = p.accompanist ? S.profile(p.accompanist) : null;
+  const cat = CATS[p.category] || CATS.autre;
+
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>${cat.icon} ${U.esc(p.title)}</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div class="diag-box">
+          <div class="diag-line"><span>Date</span><b>${U.fmtDateY(U.parseLocal(p.date))}${p.allDay ? '' : ' · ' + p.time}</b></div>
+          ${p.endDate ? `<div class="diag-line"><span>Jusqu'au</span><b>${U.fmtDateY(U.parseLocal(p.endDate))}</b></div>` : ''}
+          <div class="diag-line"><span>Pour</span><b>${prof ? `${prof.emoji} ${U.esc(prof.name)}` : '—'}</b></div>
+          ${acc ? `<div class="diag-line"><span>Accompagné par</span><b>${acc.emoji} ${U.esc(acc.name)}</b></div>` : ''}
+          <div class="diag-line"><span>Catégorie</span><b>${cat.label}</b></div>
+          <div class="diag-line"><span>Rappels</span><b>${p.reminders && p.reminders.length ? p.reminders.map(U.minutesLabel).join(', ') : 'aucun'}</b></div>
+        </div>
+        ${p.notes ? `<p class="muted">${U.esc(p.notes)}</p>` : ''}
+        <p class="hint">Mode lecture seule : consultation uniquement.</p>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn ghost grow" data-close>Fermer</button>
+      </div>
+    </div>
+  `);
+}
+
+function noteViewSheet(id) {
+  const rec = S.get(id);
+  if (!rec) return;
+  const p = rec.payload;
+  const prof = S.profile(p.profileId);
+  openSheet(`
+    <div class="sheet-form">
+      <div class="sheet-head">
+        <h2>${p.pinned ? '📌 ' : '📝 '}${U.esc(p.title || 'Note')}</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fermer">✕</button>
+      </div>
+      <div class="sheet-body">
+        ${prof ? `<p class="muted">${prof.emoji} ${U.esc(prof.name)}</p>` : ''}
+        <p>${U.esc(p.text || '')}</p>
+        <p class="hint">Mode lecture seule : consultation uniquement.</p>
       </div>
       <div class="sheet-foot">
         <button type="button" class="btn ghost grow" data-close>Fermer</button>
@@ -2205,6 +2345,22 @@ function mondayOfISO(iso) {
 }
 
 function settingsHTML() {
+  if (isReadOnly()) {
+    return `<div class="stack settings-page">
+      <div class="settings-block">
+        <h3>🔒 Lecture seule</h3>
+        <p class="muted">Cet appareil permet de <b>consulter</b> l'agenda, mais pas de le modifier.</p>
+        <button class="btn primary wide" data-action="unlock-readonly">Déverrouiller avec le code parent</button>
+      </div>
+      <div class="settings-block">
+        <h3>❓ Aide</h3>
+        <button class="btn ghost wide" data-action="help">Ouvrir l'aide</button>
+        <button class="btn ghost wide" data-action="tuto-replay">Revoir le tutoriel</button>
+      </div>
+      <p class="about">Kifékoi · lecture seule</p>
+    </div>`;
+  }
+
   const st = Sync.status;
   const ns = notifState();
   const signedIn = Sync.isSignedIn();
@@ -2438,6 +2594,12 @@ function settingsHTML() {
       </div>
       <button class="btn ghost wide" data-action="dedupe">🧹 Nettoyer les doublons de personnes</button>
       <p class="hint">Une sauvegarde est un fichier que vous pouvez conserver ou envoyer sur l'autre téléphone. Le nettoyage fusionne les personnes portant le même nom et réaffecte leurs événements.</p>
+    </div>
+
+    <div class="settings-block">
+      <h3>🔒 Accès en lecture seule</h3>
+      <p class="muted">Verrouille cet appareil : l'agenda reste consultable, mais aucune modification n'est possible. Utile pour le téléphone d'un enfant.</p>
+      <button class="btn ghost wide" data-action="lock-readonly">Verrouiller cet appareil</button>
     </div>
 
     <div class="settings-block">
@@ -2864,6 +3026,11 @@ function onAction(e) {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const action = el.dataset.action;
+
+  if (isReadOnly() && WRITE_ACTIONS.has(action)) {
+    toast('Mode lecture seule : modification impossible', 2500);
+    return;
+  }
   const id = el.dataset.id;
   const date = el.dataset.date;
 
@@ -2873,6 +3040,7 @@ function onAction(e) {
       render();
       break;
     case 'open-event':
+      if (isReadOnly()) { eventViewSheet(id); break; }
       eventSheet(id, { date });
       break;
     case 'toggle-done': {
@@ -2895,6 +3063,7 @@ function onAction(e) {
       noteSheet(null, { profileId: el.dataset.profile });
       break;
     case 'open-note':
+      if (isReadOnly()) { noteViewSheet(id); break; }
       noteSheet(id);
       break;
     case 'add-contact':
@@ -3131,6 +3300,39 @@ function onAction(e) {
     case 'help':
       helpSheet();
       break;
+    case 'lock-readonly':
+      lockReadOnlySheet();
+      break;
+    case 'unlock-readonly':
+      unlockReadOnlySheet();
+      break;
+    case 'do-lock-readonly': {
+      const pinEl = $('#roPin');
+      const pin = String(pinEl ? pinEl.value : '').trim();
+      if (!/^\d{4}$/.test(pin)) {
+        toast('Choisissez un code à 4 chiffres');
+        break;
+      }
+      storePin(pin);
+      setReadOnly(true);
+      closeSheet();
+      toast('Appareil verrouillé en lecture seule', 3000);
+      render(true);
+      break;
+    }
+    case 'do-unlock-readonly': {
+      const pinEl = $('#roPinUnlock');
+      const pin = String(pinEl ? pinEl.value : '').trim();
+      if (pinMatches(pin)) {
+        setReadOnly(false);
+        closeSheet();
+        toast('Appareil déverrouillé ✓', 2500);
+        render(true);
+      } else {
+        toast('Code incorrect');
+      }
+      break;
+    }
     case 'bilan-period':
       ui.bilanPeriod = el.dataset.id || 'rentree';
       ui.bilanOffset = 0;
