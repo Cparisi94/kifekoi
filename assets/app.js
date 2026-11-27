@@ -16,6 +16,10 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const Native = (typeof window !== 'undefined' && window.KIFEKOI_NATIVE) || null;
 const isNative = Boolean(Native && Native.isNative);
 
+const isIOS = typeof navigator !== 'undefined'
+  && (/iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 /* ------------------------------------------------------------------ */
 /* Référentiels                                                        */
 /* ------------------------------------------------------------------ */
@@ -2404,7 +2408,9 @@ function settingsHTML() {
       ? `<button class="btn primary wide" data-action="install">📲 Installer sur ce téléphone</button>`
       : (window.matchMedia('(display-mode: standalone)').matches
         ? `<p class="hint">✅ Application installée sur cet appareil.</p>`
-        : `<p class="hint">Pour installer : menu Chrome ⋮ → « Ajouter à l'écran d'accueil ».</p>`);
+        : (isIOS
+          ? `<p class="hint">Sur iPhone : bouton <b>Partager</b> (carré avec une flèche) → <b>Sur l'écran d'accueil</b>.</p>`
+          : `<p class="hint">Pour installer : menu Chrome ⋮ → « Ajouter à l'écran d'accueil ».</p>`));
 
   const childCandidates = S.profiles().filter((p) => p.role === 'child');
   const parentCandidates = S.profiles().filter((p) => p.role === 'parent');
@@ -2542,6 +2548,7 @@ function settingsHTML() {
       <h3>📨 Notifications même app fermée</h3>
       <p class="muted">Pour être prévenu des demandes de l\u2019autre parent même quand Kifékoi est fermé. À activer sur chaque téléphone.</p>
       ${body}
+      ${isIOS ? '<p class="hint">Sur iPhone : ajoutez d\u2019abord l\u2019application à l\u2019écran d\u2019accueil (Partager), puis activez les notifications (iOS 16.4 ou plus).</p>' : ''}
     </div>`;
   })();
 
