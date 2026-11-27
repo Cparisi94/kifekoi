@@ -429,6 +429,7 @@ function agendaHTML() {
             <i class="today-dot" style="--c:${pr ? pr.color : '#94a3b8'}"></i>
             <span class="today-title">${(CATS[i.payload.category] || CATS.autre).icon} ${U.esc(i.payload.title)}</span>
             <span class="today-who">${pr ? `${pr.emoji || ''} ${U.esc(pr.name)}` : ''}${acc ? ` · avec ${U.esc(acc.name)}` : ''}</span>
+            <span class="today-chev" aria-hidden="true">›</span>
             <button type="button" class="check ${i.done ? 'on' : ''}" data-action="toggle-done" data-id="${i.rec.id}" data-date="${i.date}" aria-label="${i.done ? 'Rouvrir' : 'Marquer comme fait'}">✓</button>
           </div>`;
         }).join('')}
