@@ -1886,3 +1886,10 @@ body.ro .tabbar [data-view="bilan"] { display: none !important; }
   border-radius: 3px;
   background: #FFC48A;
 }
+
+/* Carte Aujourd'hui : coche et lignes */
+.today-row { cursor: pointer; }
+.today-row .check { width: 32px; height: 32px; flex: 0 0 32px; font-size: 13px; }
+.today-row.is-done .today-title { text-decoration: line-through; opacity: .55; }
+.today-row.is-done .today-time { opacity: .55; }
+.today-more { margin: 4px 0 0; font-size: 11px; color: var(--muted); }

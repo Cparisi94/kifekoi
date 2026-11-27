@@ -418,30 +418,21 @@ function agendaHTML() {
       </div>
     </header>`;
 
-  const nightLine = (() => {
-    if (!isToday) return '';
-    const rows = S.custodyDays(todayISO).filter((x) => x.day && x.day.sleep);
-    if (!rows.length) return '';
-    const names = [...new Set(rows.map(({ day }) => (S.profile(day.sleep) || {}).name || '—'))];
-    if (names.length === 1) return `<div class="today-night">🌙 Ce soir chez <b>${U.esc(names[0])}</b></div>`;
-    const parts = rows.map(({ cfg, day }) => `${cfg.emoji} ${U.esc((S.profile(day.sleep) || {}).name || '—')}`);
-    return `<div class="today-night">🌙 Ce soir : ${parts.join(' · ')}</div>`;
-  })();
-
   const todayCard = (isToday && dayAll.length)
     ? `<section class="today-card">
         <div class="today-head"><b>Aujourd\u2019hui</b><span>${dayAll.length} événement${dayAll.length > 1 ? 's' : ''}</span></div>
-        ${dayAll.slice(0, 3).map((i) => {
+        ${dayAll.slice(0, 4).map((i) => {
           const pr = S.profile(i.payload.profileId);
           const acc = i.payload.accompanist ? S.profile(i.payload.accompanist) : null;
-          return `<button type="button" class="today-row" data-action="open-event" data-id="${i.rec.id}" data-date="${i.date}">
+          return `<div class="today-row ${i.done ? 'is-done' : ''}" data-action="open-event" data-id="${i.rec.id}" data-date="${i.date}" role="button">
             <span class="today-time">${i.payload.allDay ? 'Jour' : U.fmtTime(S.occurrenceStart(i))}</span>
             <i class="today-dot" style="--c:${pr ? pr.color : '#94a3b8'}"></i>
             <span class="today-title">${(CATS[i.payload.category] || CATS.autre).icon} ${U.esc(i.payload.title)}</span>
             <span class="today-who">${pr ? `${pr.emoji || ''} ${U.esc(pr.name)}` : ''}${acc ? ` · avec ${U.esc(acc.name)}` : ''}</span>
-          </button>`;
+            <button type="button" class="check ${i.done ? 'on' : ''}" data-action="toggle-done" data-id="${i.rec.id}" data-date="${i.date}" aria-label="${i.done ? 'Rouvrir' : 'Marquer comme fait'}">✓</button>
+          </div>`;
         }).join('')}
-        ${nightLine}
+        ${dayAll.length > 4 ? `<p class="today-more">+ ${dayAll.length - 4} autre${dayAll.length - 4 > 1 ? 's' : ''} événement${dayAll.length - 4 > 1 ? 's' : ''}</p>` : ''}
       </section>`
     : '';
 
@@ -597,7 +588,7 @@ function agendaHTML() {
     ${approvalBanner()}
     ${overdueBlock}
     ${grid}
-    ${dayBlock}
+    ${isToday ? '' : dayBlock}
     ${nextBlock}
   </div>`;
 }
