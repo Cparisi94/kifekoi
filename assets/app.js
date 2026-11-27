@@ -2676,6 +2676,8 @@ function settingsHTML() {
       <button class="btn ghost wide" data-action="force-update">🔄 Forcer la mise à jour</button>
     </div>
 
+    ${syncBlock}
+
     <div class="settings-block">
       <h3>🔒 Accès en lecture seule</h3>
       <p class="muted">Verrouille cet appareil : l'agenda reste consultable, mais aucune modification n'est possible. Utile pour le téléphone d'un enfant.</p>
@@ -2702,8 +2704,6 @@ function settingsHTML() {
       <p class="hint">Ce nom identifie ce téléphone dans les demandes (Papa / Maman). Il est <b>obligatoire</b> pour activer la validation, et doit être différent sur l'autre téléphone.</p>
       <label class="switch"><input type="checkbox" id="approvalOn" ${approvalOn() ? 'checked' : ''} ${myDevice().name ? '' : 'disabled'}><span>Activer les demandes de validation</span></label>
     </div>
-
-    ${syncBlock}
 
     <div class="settings-block">
       <h3>💾 Données</h3>
